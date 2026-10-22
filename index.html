@@ -1,0 +1,1466 @@
+<!DOCTYPE html>
+<html lang="fi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <!-- Navigointi- ja tilapalkkien värit puhelimissa -->
+  <meta name="theme-color" content="#020617">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="mobile-web-app-capable" content="yes">
+  <title>Työvuorokalenteri</title>
+
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/icon-192.png">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+
+  <!-- Kaikki kirjastot ovat paikallisia tiedostoja, joten sovellus toimii ilman verkkoa -->
+  <link rel="stylesheet" href="css/tailwind.css">
+  <link rel="stylesheet" href="css/fontawesome.css">
+  <script type="module">
+    import * as pdfjs from './lib/pdf.min.mjs';
+    pdfjs.GlobalWorkerOptions.workerSrc = './lib/pdf.worker.min.mjs';
+    window.pdfjsLib = pdfjs;
+  </script>
+
+  <style>
+
+    html, body {
+      background-color: #020617; /* Tailwind slate-950 täysin yhtenäinen tausta */
+    }
+
+    body {
+      font-family: 'Plus Jakarta Sans', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+      -webkit-tap-highlight-color: transparent;
+      padding-bottom: calc(5rem + env(safe-area-inset-bottom));
+    }
+
+    .safe-bottom-padding {
+      padding-bottom: calc(0.75rem + env(safe-area-inset-bottom));
+    }
+
+    .hide-scrollbar::-webkit-scrollbar {
+      display: none;
+    }
+    .hide-scrollbar {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col justify-between max-w-md mx-auto border-x border-slate-800 relative selection:bg-teal-500 selection:text-white">
+
+  <!-- HEADER -->
+  <header class="p-4 bg-slate-900/90 backdrop-blur-md sticky top-0 z-30 border-b border-slate-800 flex justify-between items-center shadow-lg">
+    <div>
+      <h1 class="text-lg font-extrabold bg-gradient-to-r from-teal-400 via-emerald-400 to-indigo-400 bg-clip-text text-transparent flex items-center gap-2">
+        <i class="fa-solid fa-calendar-days text-teal-400 text-base"></i>Työvuorokalenteri
+      </h1>
+      <p id="current-month-display" class="text-xs text-slate-400 capitalize font-medium">Kuukausi 2026</p>
+    </div>
+    <div class="flex items-center gap-2">
+      <button onclick="openModal('upload-modal')" class="bg-gradient-to-r from-teal-500 to-indigo-600 hover:from-teal-400 hover:to-indigo-500 text-white px-3 py-2 rounded-xl shadow-md shadow-teal-500/20 active:scale-95 transition flex items-center gap-1.5 text-xs font-semibold">
+        <i class="fa-solid fa-file-arrow-up text-sm"></i>
+        <span>Lataa PDF</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- MAIN CONTENT -->
+  <main class="p-3 space-y-3.5 flex-1 overflow-y-auto hide-scrollbar">
+
+    <!-- MONTH STATS SUMMARY CARD -->
+    <section class="grid grid-cols-4 gap-1.5">
+      <div class="bg-slate-900/80 border border-slate-800 p-2 rounded-2xl flex flex-col items-center justify-center text-center">
+        <span class="text-[9px] uppercase font-bold text-slate-400">Tunnit</span>
+        <span id="stat-hours" class="text-sm font-extrabold text-teal-400 mt-0.5">0 h</span>
+      </div>
+      <div class="bg-slate-900/80 border border-slate-800 p-2 rounded-2xl flex flex-col items-center justify-center text-center">
+        <span class="text-[9px] uppercase font-bold text-slate-400">Vuorot</span>
+        <span id="stat-shifts" class="text-sm font-extrabold text-indigo-400 mt-0.5">0</span>
+      </div>
+      <div class="bg-slate-900/80 border border-slate-800 p-2 rounded-2xl flex flex-col items-center justify-center text-center">
+        <span class="text-[9px] uppercase font-bold text-slate-400">Vapaat</span>
+        <span id="stat-off" class="text-sm font-extrabold text-emerald-400 mt-0.5">0</span>
+      </div>
+      <div class="bg-slate-900/80 border border-slate-800 p-2 rounded-2xl flex flex-col items-center justify-center text-center">
+        <span class="text-[9px] uppercase font-bold text-slate-400">Yö (+1d)</span>
+        <span id="stat-night" class="text-sm font-extrabold text-amber-400 mt-0.5">0</span>
+      </div>
+    </section>
+
+    <!-- CALENDAR MONTH NAVIGATION -->
+    <div class="flex justify-between items-center bg-slate-900/60 p-2 rounded-2xl border border-slate-800/80">
+      <button onclick="changeMonth(-1)" class="w-9 h-9 flex items-center justify-center rounded-xl bg-slate-800 text-slate-300 hover:bg-slate-700 active:scale-95 transition">
+        <i class="fa-solid fa-chevron-left text-xs"></i>
+      </button>
+      <div class="font-extrabold text-slate-200 text-sm tracking-wide" id="calendar-header-title">Kuukausi 2026</div>
+      <button onclick="changeMonth(1)" class="w-9 h-9 flex items-center justify-center rounded-xl bg-slate-800 text-slate-300 hover:bg-slate-700 active:scale-95 transition">
+        <i class="fa-solid fa-chevron-right text-xs"></i>
+      </button>
+    </div>
+
+    <!-- CALENDAR GRID CONTAINER -->
+    <div class="bg-slate-900/80 border border-slate-800/90 p-2 rounded-2xl shadow-xl">
+      <div class="grid grid-cols-7 gap-1 text-center mb-1.5">
+        <span class="text-[10px] font-extrabold text-slate-500">MA</span>
+        <span class="text-[10px] font-extrabold text-slate-500">TI</span>
+        <span class="text-[10px] font-extrabold text-slate-500">KE</span>
+        <span class="text-[10px] font-extrabold text-slate-500">TO</span>
+        <span class="text-[10px] font-extrabold text-slate-500">PE</span>
+        <span class="text-[10px] font-extrabold text-slate-500">LA</span>
+        <span class="text-[10px] font-extrabold text-slate-500">SU</span>
+      </div>
+      <div id="calendar-days" class="grid grid-cols-7 gap-1"></div>
+    </div>
+
+    <!-- LIST OF MONTH'S SHIFTS -->
+    <section class="space-y-2.5">
+      <div class="flex justify-between items-center px-1">
+        <h2 class="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
+          <i class="fa-solid fa-list text-teal-400"></i> Kuukauden vuorolistat
+        </h2>
+        <div class="flex gap-2">
+          <button onclick="clearCurrentMonthShifts()" class="text-[11px] font-medium text-red-400 hover:text-red-300 bg-red-950/30 border border-red-900/30 px-2 py-1 rounded-lg transition">
+            Tyhjennä kk
+          </button>
+          <button onclick="openAddShiftModal()" class="text-[11px] font-semibold text-teal-300 bg-teal-950/40 border border-teal-800/40 px-2.5 py-1 rounded-lg transition hover:bg-teal-900/40">
+            + Lisää
+          </button>
+        </div>
+      </div>
+
+      <div id="shift-list-container" class="space-y-2"></div>
+    </section>
+
+  </main>
+
+  <!-- BOTTOM NAVIGATION BAR WITH FULL SEAMLESS BG -->
+  <nav class="fixed bottom-0 left-0 right-0 max-w-md mx-auto bg-slate-900 border-t border-slate-800 px-6 pt-3 safe-bottom-padding flex justify-around items-center z-20 shadow-2xl">
+    <button onclick="resetMonthToToday()" class="flex flex-col items-center gap-1 text-teal-400 active:scale-95 transition">
+      <i class="fa-solid fa-calendar-day text-lg"></i>
+      <span class="text-[10px] font-medium">Tämä kk</span>
+    </button>
+    <button onclick="openModal('upload-modal')" class="flex flex-col items-center gap-1 text-slate-300 hover:text-white transition active:scale-95">
+      <div class="bg-gradient-to-r from-teal-500 to-indigo-600 text-white p-2.5 rounded-full -mt-7 shadow-xl shadow-teal-500/25 border-2 border-slate-900">
+        <i class="fa-solid fa-plus text-base"></i>
+      </div>
+      <span class="text-[10px] font-medium">Lataa PDF</span>
+    </button>
+    <button onclick="openModal('settings-modal')" class="flex flex-col items-center gap-1 text-slate-400 hover:text-slate-200 transition active:scale-95">
+      <i class="fa-solid fa-sliders text-lg"></i>
+      <span class="text-[10px] font-medium">Asetukset</span>
+    </button>
+  </nav>
+
+  <!-- UPLOAD / PARSE MODAL -->
+  <div id="upload-modal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 hidden flex items-end sm:items-center justify-center p-0 sm:p-4">
+    <div class="bg-slate-900 border border-slate-800 w-full max-w-md rounded-t-3xl sm:rounded-3xl p-5 space-y-4 max-h-[90vh] overflow-y-auto hide-scrollbar">
+      <div class="flex justify-between items-center">
+        <h3 class="text-base font-bold text-slate-100 flex items-center gap-2">
+          <i class="fa-solid fa-file-pdf text-red-400"></i> Tuo PDF-tiedostot
+        </h3>
+        <button onclick="closeModal('upload-modal')" class="text-slate-400 hover:text-slate-100 p-1">
+          <i class="fa-solid fa-xmark text-lg"></i>
+        </button>
+      </div>
+
+      <div class="border-2 border-dashed border-teal-500/40 hover:border-teal-400 bg-teal-950/10 p-6 rounded-2xl text-center cursor-pointer transition relative group">
+        <input type="file" id="pdf-file-input" accept="application/pdf,.pdf" multiple class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" onchange="handlePdfUpload(event)">
+        <div class="space-y-2 pointer-events-none">
+          <i class="fa-solid fa-cloud-arrow-up text-3xl text-teal-400 group-hover:scale-110 transition-transform"></i>
+          <p class="text-xs text-slate-200 font-semibold">Valitse PDF-tiedostot</p>
+          <p class="text-[11px] text-slate-400 leading-snug">Työvuorolista ja ajosarjat tunnistetaan automaattisesti.<br>Voit valita monta tiedostoa kerralla.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SETTINGS MODAL -->
+  <div id="settings-modal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 hidden flex items-end sm:items-center justify-center p-0 sm:p-4">
+    <div class="bg-slate-900 border border-slate-800 w-full max-w-md rounded-t-3xl sm:rounded-3xl p-5 space-y-4 max-h-[90vh] overflow-y-auto hide-scrollbar">
+      <div class="flex justify-between items-center">
+        <h3 class="text-base font-bold text-slate-100">Asetukset & Ajosarjat</h3>
+        <button onclick="closeModal('settings-modal')" class="text-slate-400 hover:text-slate-100 p-1">
+          <i class="fa-solid fa-xmark text-lg"></i>
+        </button>
+      </div>
+
+      <div class="space-y-3">
+        <div class="bg-teal-950/30 border border-teal-700/50 p-3 rounded-xl space-y-2">
+          <p class="text-xs font-bold text-teal-300"><i class="fa-solid fa-file-pdf mr-1.5"></i>Ajosarjojen lisääminen</p>
+          <p class="text-[11px] text-slate-300 leading-snug">Lisää ajosarjat lataamalla niiden PDF-tiedostot (Tarkemmat tiedot). Sama painike tuo myös työvuorolistan.</p>
+          <button onclick="closeModal('settings-modal'); openModal('upload-modal')" class="w-full bg-teal-600 hover:bg-teal-500 text-white font-semibold text-xs py-2.5 rounded-lg transition shadow-md shadow-teal-600/30">
+            Lataa PDF
+          </button>
+        </div>
+
+        <button onclick="clearAllData()" class="w-full bg-red-950/30 border border-red-900/40 hover:bg-red-900/40 text-red-400 text-xs font-semibold py-3 px-4 rounded-xl flex items-center justify-between mt-4">
+          <span><i class="fa-solid fa-trash mr-2"></i>Tyhjennä kaikki vuoro- ja ajosarjatiedot</span>
+        </button>
+      </div>
+
+      <!-- SAVED TEMPLATES LIST WITH DELETE BUTTONS -->
+      <div class="bg-slate-800/60 p-3 rounded-xl border border-slate-800 space-y-2 text-xs mt-3">
+        <span class="text-slate-300 font-bold block"><i class="fa-solid fa-bolt text-amber-400 mr-1.5"></i>Tallennetut ajosarjat muistissa:</span>
+        <div id="saved-templates-summary" class="text-[11px] text-slate-400 max-h-48 overflow-y-auto space-y-1.5">
+          Ei tallennettuja ajosarjoja.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PREVIEW & CONFIRM MODAL -->
+  <div id="preview-modal" class="fixed inset-0 bg-slate-950/85 backdrop-blur-sm z-50 hidden flex items-end sm:items-center justify-center p-0 sm:p-4">
+    <div class="bg-slate-900 border border-slate-800 w-full max-w-md rounded-t-3xl sm:rounded-3xl p-5 space-y-4 max-h-[90vh] flex flex-col">
+      <div class="flex justify-between items-center pb-2 border-b border-slate-800">
+        <div>
+          <h3 class="text-base font-bold text-slate-100 flex items-center gap-2">
+            <i class="fa-solid fa-list-check text-teal-400"></i> Tunnistetut tiedot
+          </h3>
+          <p id="preview-subtitle" class="text-xs text-slate-400">Tarkista tiedot ennen tallennusta</p>
+        </div>
+        <button onclick="closeModal('preview-modal')" class="text-slate-400 hover:text-slate-100 p-1">
+          <i class="fa-solid fa-xmark text-lg"></i>
+        </button>
+      </div>
+
+      <div id="preview-list-container" class="space-y-2 overflow-y-auto flex-1 pr-1 hide-scrollbar"></div>
+
+      <div class="pt-2 flex gap-2 border-t border-slate-800">
+        <button onclick="closeModal('preview-modal')" class="w-1/3 bg-slate-800 hover:bg-slate-700 text-slate-300 font-medium text-xs py-3 rounded-xl transition">
+          Peruuta
+        </button>
+        <button id="btn-confirm-import" onclick="confirmImport()" class="flex-1 bg-teal-600 hover:bg-teal-500 text-white font-semibold text-xs py-3 rounded-xl transition shadow-lg shadow-teal-600/30">
+          Tallenna
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- DETAILED SHIFT VIEW MODAL -->
+  <div id="detail-modal" class="fixed inset-0 bg-slate-950/85 backdrop-blur-sm z-50 hidden flex items-end sm:items-center justify-center p-0 sm:p-4">
+    <div class="bg-slate-900 border border-slate-800 w-full max-w-md rounded-t-3xl sm:rounded-3xl p-5 space-y-4 max-h-[90vh] flex flex-col">
+      <div class="flex justify-between items-center pb-2 border-b border-slate-800">
+        <div>
+          <h3 id="detail-modal-title" class="text-base font-bold text-teal-300 flex items-center gap-2">
+            <i class="fa-solid fa-clock-rotate-left"></i> Ajosarjan erittely
+          </h3>
+          <p id="detail-modal-subtitle" class="text-xs text-slate-400">Päivän tiedot</p>
+        </div>
+        <button onclick="closeModal('detail-modal')" class="text-slate-400 hover:text-slate-100 p-1">
+          <i class="fa-solid fa-xmark text-lg"></i>
+        </button>
+      </div>
+
+      <label id="detail-toggle-row" class="flex items-center gap-2 text-[11px] text-slate-400 shrink-0">
+        <input type="checkbox" id="toggle-layovers" onchange="toggleLayovers(this.checked)" class="rounded bg-slate-800 border-slate-700 text-teal-500 focus:ring-0">
+        Näytä kääntö- ja odotusajat
+      </label>
+
+      <div id="detail-modal-content" class="space-y-2 overflow-y-auto flex-1 min-h-0 pr-1 hide-scrollbar text-xs"></div>
+
+      <div class="pt-2 border-t border-slate-800 flex gap-2">
+        <button onclick="closeModal('detail-modal')" class="w-full bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold py-2.5 rounded-xl transition">
+          Sulje
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ADD / EDIT SHIFT MODAL -->
+  <div id="shift-modal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 hidden flex items-end sm:items-center justify-center p-0 sm:p-4">
+    <div class="bg-slate-900 border border-slate-800 w-full max-w-md rounded-t-3xl sm:rounded-3xl p-5 space-y-4">
+      <div class="flex justify-between items-center">
+        <h3 id="shift-modal-title" class="text-base font-bold text-slate-100">Lisää vuoro</h3>
+        <button onclick="closeModal('shift-modal')" class="text-slate-400 hover:text-slate-100 p-1">
+          <i class="fa-solid fa-xmark text-lg"></i>
+        </button>
+      </div>
+
+      <form id="shift-form" onsubmit="saveManualShift(event)" class="space-y-3">
+        <input type="hidden" id="shift-id">
+        <div>
+          <label class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Päivämäärä</label>
+          <input type="date" id="shift-date" required onchange="onManualDateChange()" class="w-full bg-slate-800 border border-slate-700 rounded-xl p-2.5 text-xs text-slate-100 focus:outline-none focus:border-teal-500">
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Koodi / Tyyppi</label>
+            <input type="text" id="shift-code" placeholder="esim. PAS546 tai VP" required oninput="onManualCodeInput()" class="w-full bg-slate-800 border border-slate-700 rounded-xl p-2.5 text-xs text-slate-100 focus:outline-none focus:border-teal-500">
+          </div>
+          <div>
+            <label class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Paikka</label>
+            <input type="text" id="shift-location" placeholder="esim. PASILA" class="w-full bg-slate-800 border border-slate-700 rounded-xl p-2.5 text-xs text-slate-100 focus:outline-none focus:border-teal-500">
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Alkaa</label>
+            <input type="time" id="shift-start" class="w-full bg-slate-800 border border-slate-700 rounded-xl p-2.5 text-xs text-slate-100 focus:outline-none focus:border-teal-500">
+          </div>
+          <div>
+            <label class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Päättyy</label>
+            <input type="time" id="shift-end" class="w-full bg-slate-800 border border-slate-700 rounded-xl p-2.5 text-xs text-slate-100 focus:outline-none focus:border-teal-500">
+          </div>
+        </div>
+
+        <div class="flex items-center gap-2 pt-1">
+          <input type="checkbox" id="shift-overnight" class="rounded bg-slate-800 border-slate-700 text-teal-500 focus:ring-0">
+          <label for="shift-overnight" class="text-xs text-slate-400">Päättyy seuraavana päivänä (+1d)</label>
+        </div>
+
+        <div class="pt-2 flex gap-2">
+          <button type="button" id="btn-delete-shift" onclick="deleteCurrentShift()" class="hidden w-1/3 bg-red-950/50 border border-red-800/60 hover:bg-red-900/60 text-red-300 font-medium text-xs py-2.5 rounded-xl transition">Poista</button>
+          <button type="submit" class="flex-1 bg-teal-600 hover:bg-teal-500 text-white font-semibold text-xs py-2.5 rounded-xl transition shadow-lg shadow-teal-600/30">Tallenna vuoro</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- TOAST -->
+  <div id="toast" class="fixed top-4 left-1/2 -translate-x-1/2 z-50 bg-slate-800 border border-slate-700 text-slate-100 px-4 py-2.5 rounded-2xl shadow-2xl text-xs font-medium opacity-0 transition-all duration-300 pointer-events-none flex items-center gap-2">
+    <i id="toast-icon" class="fa-solid fa-circle-info text-teal-400"></i>
+    <span id="toast-msg">Viesti</span>
+  </div>
+
+  <script>
+    // =====================================================================
+    //  PDF-PARSERI  (puhdas logiikka, ei riipu sivun elementeistä)
+    //  Lukee työvuorolistan ja ajosarjat suoraan PDF:n tekstikohdista.
+    // =====================================================================
+    // <PARSER>
+    const PARSER_MONTHS = ['tammikuu', 'helmikuu', 'maaliskuu', 'huhtikuu', 'toukokuu', 'kesäkuu', 'heinäkuu', 'elokuu', 'syyskuu', 'lokakuu', 'marraskuu', 'joulukuu'];
+    const TIME_ONLY_RE = /^\d{1,2}\.\d{2}$/;
+    const ROSTER_TIME_RE = /^\d{1,2}[.:]\d{2}\+?$/;
+
+    function p2(n) { return (n < 10 ? '0' : '') + n; }
+    function normClock(t) {
+      const m = String(t || '').match(/^(\d{1,2})[.:](\d{2})/);
+      return m ? p2(+m[1]) + '.' + m[2] : '';
+    }
+    function clockToMin(t) {
+      const m = String(t || '').match(/^(\d{1,2})[.:](\d{2})/);
+      return m ? (+m[1]) * 60 + (+m[2]) : NaN;
+    }
+
+    // Hakee jokaiselta sivulta tekstikohdat koordinaatteineen (y alkaa sivun ylälaidasta).
+    async function extractPdfPages(pdf) {
+      const pages = [];
+      for (let p = 1; p <= pdf.numPages; p++) {
+        const page = await pdf.getPage(p);
+        const vp = page.getViewport({ scale: 1 });
+        const tc = await page.getTextContent();
+        const items = [];
+        for (const it of tc.items) {
+          if (typeof it.str !== 'string') continue;
+          // Ikonifontin merkit (Private Use Area) pois
+          const str = it.str.replace(/[-]/g, '').trim();
+          if (!str) continue;
+          items.push({ str, x: it.transform[4], y: vp.height - it.transform[5] });
+        }
+        pages.push({ items });
+      }
+      return pages;
+    }
+
+    function detectPdfType(pages) {
+      const txt = pages.map(pg => pg.items.map(i => i.str).join(' ')).join(' ');
+      if (/Tarkemmat\s+tiedot/i.test(txt)) return 'ajosarja';
+      if (/Työvuorot/i.test(txt)) return 'roster';
+      return 'unknown';
+    }
+
+    // Ryhmittelee tekstikohdat riveiksi y-koordinaatin mukaan.
+    function groupLines(items, tol) {
+      const sorted = [...items].sort((a, b) => a.y - b.y || a.x - b.x);
+      const lines = [];
+      for (const it of sorted) {
+        const last = lines[lines.length - 1];
+        if (last && it.y - last.y <= tol) last.items.push(it);
+        else lines.push({ y: it.y, items: [it] });
+      }
+      lines.forEach(l => {
+        l.items.sort((a, b) => a.x - b.x);
+        l.text = l.items.map(i => i.str).join(' ').replace(/\s+/g, ' ').trim();
+      });
+      return lines;
+    }
+
+    // ---------- Työvuorolista (kuukausikalenteri) ----------
+    function parseRosterPages(pages, fallback) {
+      const warnings = [];
+      let year = null, month = null;
+
+      // Kuukausi ja vuosi vain otsikkorivistä ("Työvuorot lokakuu 2026")
+      for (const pg of pages) {
+        const t = pg.items.find(i => /^työvuorot$/i.test(i.str));
+        if (!t) continue;
+        const line = pg.items.filter(i => Math.abs(i.y - t.y) < 4).sort((a, b) => a.x - b.x).map(i => i.str).join(' ').toLowerCase();
+        PARSER_MONTHS.forEach((m, idx) => { if (line.includes(m)) month = idx + 1; });
+        const ym = line.match(/20\d\d/);
+        if (ym) year = +ym[0];
+        break;
+      }
+      if (!month || !year) {
+        month = month || (fallback && fallback.month);
+        year = year || (fallback && fallback.year);
+        warnings.push('Kuukautta tai vuotta ei löytynyt otsikosta, joten käytetään sovelluksessa näkyvää kuukautta.');
+      }
+      if (!month || !year) return { error: 'Kuukautta ei tunnistettu' };
+
+      const daysInMonth = new Date(year, month, 0).getDate();
+      const shifts = [];
+
+      for (const pg of pages) {
+        const dayItems = pg.items.filter(i => /^\d{1,2}$/.test(i.str) && +i.str >= 1 && +i.str <= 31);
+        if (!dayItems.length) continue;
+        const dayItemSet = new Set(dayItems);
+
+        // Viikkorivit: päivännumerot samalla y-tasolla
+        const rows = [];
+        [...dayItems].sort((a, b) => a.y - b.y).forEach(d => {
+          const r = rows[rows.length - 1];
+          if (r && Math.abs(d.y - r.y) < 4) r.days.push(d);
+          else rows.push({ y: d.y, days: [d] });
+        });
+
+        rows.forEach((row, ri) => {
+          const nextY = ri + 1 < rows.length ? rows[ri + 1].y : Infinity;
+          const cells = new Map(row.days.map(d => [d, []]));
+
+          // Soluun kuuluu kaikki päivännumeron alapuolella (seuraavaan riviin asti) samassa sarakkeessa
+          pg.items.forEach(it => {
+            if (dayItemSet.has(it)) return;
+            if (it.y <= row.y + 1 || it.y >= nextY - 1) return;
+            let best = null, bd = Infinity;
+            row.days.forEach(d => { const dx = Math.abs(it.x - d.x); if (dx < bd) { bd = dx; best = d; } });
+            if (best && bd < 45) cells.get(best).push(it);
+          });
+
+          cells.forEach((list, d) => {
+            if (!list.length) return;
+            list.sort((a, b) => a.y - b.y || a.x - b.x);
+            const texts = list.map(i => i.str);
+            const isTime = s => ROSTER_TIME_RE.test(s);
+            const code = texts.find(s => !isTime(s));
+            if (!code) return;
+            const times = texts.filter(isTime);
+            const location = texts.find(s => !isTime(s) && s !== code) || '';
+            const day = +d.str;
+            if (day > daysInMonth) { warnings.push(`Päivä ${day} ei kuulu kuukauteen.`); return; }
+            shifts.push({
+              date: `${year}-${p2(month)}-${p2(day)}`,
+              code,
+              start: times[0] ? normClock(times[0]) : '',
+              end: times[1] ? normClock(times[1]) : '',
+              overnight: !!(times[1] && times[1].includes('+')),
+              location
+            });
+          });
+        });
+      }
+
+      shifts.sort((a, b) => a.date.localeCompare(b.date));
+      if (!shifts.length) warnings.push('Yhtään vuoroa ei löytynyt.');
+      return { year, month, shifts, warnings };
+    }
+
+    // ---------- Ajosarja ("Tarkemmat tiedot") ----------
+    function parseAjosarjaPages(pages) {
+      const warnings = [];
+      const p0 = pages[0].items;
+
+      // Päivämäärä otsikosta ("ke, 21.10.2026")
+      let dm = p0.filter(i => i.y < 70).sort((a, b) => a.y - b.y || a.x - b.x).map(i => i.str).join(' ').match(/(\d{1,2})\.(\d{1,2})\.(20\d\d)/);
+      if (!dm) dm = pages.map(pg => pg.items.map(i => i.str).join(' ')).join(' ').match(/(\d{1,2})\.(\d{1,2})\.(20\d\d)/);
+      if (!dm) return { error: 'Päivämäärää ei löytynyt' };
+      const date = `${dm[3]}-${p2(+dm[2])}-${p2(+dm[1])}`;
+
+      // Ajosarjan koodi
+      const codeRe = /^[A-ZÅÄÖ]{2,6}\d{1,4}[A-Z]?$/;
+      const mieh = p0.find(i => i.str.startsWith('Miehistöpaikka'));
+      const codeItem = p0.filter(i => i.y < (mieh ? mieh.y : 130) && codeRe.test(i.str)).sort((a, b) => a.y - b.y || a.x - b.x)[0];
+      if (!codeItem) return { error: 'Ajosarjan koodia ei löytynyt' };
+      const code = codeItem.str;
+
+      // Yläosan tiedot: arvo on otsikon alapuolella samassa sarakkeessa
+      const valueBelow = (label) => {
+        const lab = p0.find(i => i.str.startsWith(label));
+        if (!lab) return '';
+        return p0.filter(i => i !== lab && i.y > lab.y + 4 && i.y < lab.y + 22 && i.x >= lab.x - 2 && i.x < lab.x + 125)
+          .sort((a, b) => a.x - b.x).map(i => i.str).join(' ');
+      };
+      const place = valueBelow('Miehistöpaikka');
+      const hdrStart = normClock(valueBelow('Alkaminen'));
+      const hdrEnd = normClock(valueBelow('Päättyminen'));
+      const summary = {
+        workTime: valueBelow('Työaika'),
+        calcTime: valueBelow('Laskennallinen'),
+        breakTime: valueBelow('Taukoaika'),
+        evening: valueBelow('Iltalisä')
+      };
+
+      const workLabel = p0.find(i => i.str.startsWith('Työaika'));
+      const alkLabel = p0.find(i => i.str.startsWith('Alkaminen'));
+      const headerBottom = (workLabel ? workLabel.y : (alkLabel ? alkLabel.y + 36 : 150)) + 22;
+
+      // Vaiheet-osio: kaikki sivujen 2+ kohdat ja sivun 1 kohdat otsikon alapuolella
+      const all = [];
+      pages.forEach((pg, pi) => pg.items.forEach(i => {
+        if (pi > 0 || i.y > headerBottom) all.push({ str: i.str, x: i.x, gy: pi * 10000 + i.y });
+      }));
+
+      // Vasemman reunan aikasarake (alku- ja loppuajat)
+      const lone = all.filter(i => TIME_ONLY_RE.test(i.str));
+      if (!lone.length) return { error: 'Ajosarjan aikoja ei löytynyt' };
+      const counts = {};
+      lone.forEach(i => { const k = Math.round(i.x); counts[k] = (counts[k] || 0) + 1; });
+      const timeX = +Object.keys(counts).sort((a, b) => counts[b] - counts[a])[0];
+      const T = lone.filter(i => Math.abs(i.x - timeX) <= 15).sort((a, b) => a.gy - b.gy);
+      const Tset = new Set(T);
+
+      // Sisältösarake: pois ajat ja mahdolliset ikoniteksti-ligatuurit
+      const content = all.filter(i => !Tset.has(i) && !(i.x < timeX + 62 && /^[a-z]+(?:_[a-z]+)*$/.test(i.str)));
+      const lines = groupLines(content.map(i => ({ str: i.str, x: i.x, y: i.gy })), 6.5);
+
+      const TYPE_RE = /^(Aloitusaika|Lopetusaika|Halliajo|Kääntöaika|Linja-ajo|Vaihtoautosiirtymä|Tauko|Siirtymä|Kävely)/;
+      const DETAIL_RE = /^(Linja\b(?!-)|Kulkuneuvon|Kiertonumero|Odotus\s+lähtöön|\d)/;
+      const WAIT_RE = /^Odotus\s+lähtöön\s+(\d{1,2}[.:]\d{2}):?\s+(\d{1,2}(?::\d{2}){1,2})\s+sijainnissa\s+(.+)$/;
+
+      const events = [];
+      let cur = null;
+      let labelItems = null;
+
+      for (const ln of lines) {
+        const text = ln.text.replace(/^(?:[a-z]+_)*[a-z]+\s+(?=[A-ZÅÄÖ])/, '');
+
+        // Edellisen rivin otsikoita (Linja / Kulkuneuvon numero / Kiertonumero) seuraava arvorivi
+        if (labelItems && cur && ln.items.every(i => /^\d+$/.test(i.str))) {
+          ln.items.forEach(v => {
+            let best = null, bd = Infinity;
+            labelItems.forEach(l => { const dx = Math.abs(v.x - l.x); if (dx < bd) { bd = dx; best = l; } });
+            if (!best || bd > 20) return;
+            if (best.name === 'Kiertonumero') cur.kierto = v.str;
+            else if (best.name === 'Linja') cur.lineNo = cur.lineNo || v.str;
+            // Kulkuneuvon numero jätetään tarkoituksella pois (vaihtuu herkästi)
+          });
+          labelItems = null;
+          continue;
+        }
+        labelItems = null;
+
+        if (/^Odotusaika/.test(text)) continue;
+        const wm = text.match(WAIT_RE);
+        if (wm) {
+          if (cur) cur.waits.push({ dep: normClock(wm[1]), dur: wm[2], place: wm[3] });
+          continue;
+        }
+        if (/Kulkuneuvon|Kiertonumero/.test(text) && !TYPE_RE.test(text)) {
+          labelItems = ln.items
+            .filter(i => /^(Linja|Kulkuneuvon|Kiertonumero)/.test(i.str))
+            .map(i => ({ name: i.str.match(/^(Linja|Kulkuneuvon|Kiertonumero)/)[1], x: i.x }));
+          continue;
+        }
+
+        const hasTimeAbove = T.some(t => ln.y - t.gy >= 7 && ln.y - t.gy <= 15);
+        const isTitle = TYPE_RE.test(text) || (hasTimeAbove && !DETAIL_RE.test(text) && !/[→➔⇒]/.test(text));
+        if (isTitle) {
+          const paren = (text.match(/\(([^)]*)\)\s*$/) || [])[1] || '';
+          const base = text.replace(/\s*\([^)]*\)\s*$/, '').trim();
+          cur = {
+            type: base,
+            note: base === 'Linja-ajo' ? '' : paren,
+            lineNo: base === 'Linja-ajo' ? paren : '',
+            from: '', to: '', kierto: '', waits: [], y: ln.y
+          };
+          events.push(cur);
+          continue;
+        }
+
+        if (cur && !cur.from && /[→➔⇒]|->/.test(text)) {
+          const parts = text.split(/\s*(?:→|➔|⇒|->)\s*/);
+          cur.from = parts[0].trim();
+          cur.to = (parts[1] || parts[0]).trim();
+        }
+      }
+
+      const n = events.length;
+      if (!n) return { error: 'Ajosarjan vaiheita ei löytynyt' };
+
+      // Aikojen paritus: jokaisella vaiheella on alkuaika (n. 11 px otsikon yläpuolella) ja loppuaika
+      const S = [], E = [];
+      const idxS = events.map(e => T.findIndex(t => e.y - t.gy >= 7 && e.y - t.gy <= 15));
+      const idxOk = idxS.every((v, i) => v >= 0 && (i === 0 || v > idxS[i - 1]));
+      if (idxOk) {
+        for (let i = 0; i < n; i++) {
+          const nextStart = i + 1 < n ? idxS[i + 1] : T.length;
+          const eIdx = nextStart - 1;
+          S.push(T[idxS[i]].str);
+          E.push(eIdx > idxS[i] ? T[eIdx].str : T[idxS[i]].str);
+          if (nextStart - idxS[i] !== 2 && events[i].type !== 'Lopetusaika') {
+            warnings.push(`Vaiheelle ${i + 1} (${events[i].type}) löytyi ${nextStart - idxS[i]} aikaa, odotettiin 2.`);
+          }
+        }
+      } else {
+        warnings.push('Aikojen paikannus epäonnistui, käytetään järjestysparitusta.');
+        for (let i = 0; i < n; i++) {
+          S.push(T[2 * i] ? T[2 * i].str : '');
+          E.push(T[2 * i + 1] ? T[2 * i + 1].str : (T[2 * i] ? T[2 * i].str : ''));
+        }
+        if (T.length !== 2 * n) warnings.push(`Aikoja ${T.length}, odotettiin ${2 * n}.`);
+      }
+
+      const steps = events.map((e, i) => ({
+        type: e.type,
+        note: e.note,
+        lineNo: e.lineNo,
+        from: e.from,
+        to: e.to,
+        kierto: e.kierto,
+        start: normClock(S[i]),
+        end: normClock(E[i]),
+        waits: e.waits
+      }));
+
+      // Tarkistukset: alku/loppu täsmäävät otsikkoon ja ajat etenevät järjestyksessä
+      const start = hdrStart || steps[0].start;
+      const end = hdrEnd || steps[n - 1].end;
+      if (hdrStart && steps[0].start !== hdrStart) warnings.push(`Ensimmäinen vaihe alkaa ${steps[0].start}, mutta alkamisaika on ${hdrStart}.`);
+      if (hdrEnd && steps[n - 1].end !== hdrEnd) warnings.push(`Viimeinen vaihe päättyy ${steps[n - 1].end}, mutta päättymisaika on ${hdrEnd}.`);
+      let prev = -1, base = 0;
+      steps.forEach((s, i) => {
+        let a = clockToMin(s.start) + base;
+        if (a < prev) { base += 1440; a += 1440; }
+        let b = clockToMin(s.end) + base;
+        if (b < a) { base += 1440; b += 1440; }
+        if (prev !== -1 && a < prev) warnings.push(`Vaiheen ${i + 1} aika ei jatku edellisestä.`);
+        prev = b;
+      });
+
+      const overnight = clockToMin(end) < clockToMin(start);
+      const kierto = [];
+      steps.forEach(s => { if (s.kierto && !kierto.includes(s.kierto)) kierto.push(s.kierto); });
+
+      return { code, date, place, start, end, overnight, summary, kierto, steps, warnings };
+    }
+    // </PARSER>
+
+    // =====================================================================
+    //  SOVELLUKSEN TILA
+    // =====================================================================
+    function loadJSON(key, fallback) {
+      try {
+        const raw = localStorage.getItem(key);
+        return raw ? JSON.parse(raw) : fallback;
+      } catch (e) { return fallback; }
+    }
+
+    const FinnishMonths = PARSER_MONTHS;
+    const GROUP_LABELS = { 'ma-to': 'Ma–To', 'pe': 'Pe', 'la': 'La', 'su': 'Su' };
+    const WEEKDAYS_SHORT = ['Su', 'Ma', 'Ti', 'Ke', 'To', 'Pe', 'La'];
+
+    // Vanhan muodon (yksi ajosarja / viikonpäiväryhmä, tekoälyn tekemä JSON) muunto uuteen:
+    // ajosarjat[KOODI][ryhmä] = [vaihtoehto, ...]  (sama koodi voi olla eri ajoilla eri aikataulukausina)
+    function legacyToVariant(t) {
+      const steps = (t.steps || []).map(s => {
+        const parts = String(s.time || '').split(/\s*[–-]\s*/);
+        let desc = String(s.desc || '');
+        let lineNo = '';
+        const lm = desc.match(/^Linja\s+(\S+?):\s*(.+)$/);
+        if (lm) { lineNo = lm[1]; desc = lm[2]; }
+        const ft = desc.split(/\s*(?:➔|→)\s*/);
+        return {
+          type: s.type || '', note: '', lineNo,
+          from: ft[0] || '', to: ft[1] || '',
+          kierto: '', start: normClock(parts[0]), end: parts[1] ? normClock(parts[1]) : '', waits: []
+        };
+      });
+      return {
+        start: t.start, end: t.end, overnight: !!t.overnight,
+        place: t.location || '', summary: { workTime: (t.summary && t.summary.workTime) || '' },
+        kierto: [], steps, legacy: true
+      };
+    }
+
+    function normalizeTemplates(raw) {
+      const out = {};
+      Object.keys(raw || {}).forEach(code => {
+        const groups = raw[code];
+        if (!groups || typeof groups !== 'object') return;
+        Object.keys(groups).forEach(g => {
+          const val = groups[g];
+          const list = Array.isArray(val) ? val : (val ? [legacyToVariant(val)] : []);
+          if (!list.length) return;
+          if (!out[code]) out[code] = {};
+          out[code][g] = list;
+        });
+      });
+      return out;
+    }
+
+    let shifts = loadJSON('app_work_shifts', []);
+    let ajosarjaTemplates = normalizeTemplates(loadJSON('app_ajosarja_templates', {}));
+    let pendingShifts = [];
+    let pendingTemplates = [];
+    let importProblems = [];
+    let currentDate = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+    let selectedDateStr = null;
+    let showLayovers = loadJSON('app_show_layovers', false);
+    let currentDetail = null;
+    let lastRenderedToday = null;
+
+    if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
+      navigator.serviceWorker.register('sw.js').catch(err => console.warn('Service worker ei rekisteröitynyt', err));
+    }
+
+    window.onload = function() {
+      renderAll();
+      // Päivittää "tänään"-korostuksen, kun päivä vaihtuu (puhelin yöllä tai sovellus taustalla)
+      setInterval(checkDayChange, 60000);
+      document.addEventListener('visibilitychange', () => { if (!document.hidden) checkDayChange(); });
+    };
+
+    function renderAll() {
+      renderCalendar();
+      updateStats();
+      renderShiftList();
+      updateSavedTemplatesSummary();
+    }
+
+    function checkDayChange() {
+      if (lastRenderedToday && lastRenderedToday !== todayStr()) {
+        renderCalendar();
+        renderShiftList();
+      }
+    }
+
+    function saveToStorage() {
+      try {
+        localStorage.setItem('app_work_shifts', JSON.stringify(shifts));
+        localStorage.setItem('app_ajosarja_templates', JSON.stringify(ajosarjaTemplates));
+      } catch (e) { console.warn('Tallennus epäonnistui', e); }
+    }
+
+    // ---------- Apufunktiot ----------
+    function esc(s) {
+      return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    }
+    function formatDateStr(year, month, day) { return `${year}-${p2(month)}-${p2(day)}`; }
+    // Päivämäärä paikallisena (new Date("2026-10-22") tulkittaisiin UTC-aikana)
+    function parseLocalDate(str) {
+      const [y, m, d] = str.split('-').map(Number);
+      return new Date(y, m - 1, d);
+    }
+    function todayStr() {
+      const t = new Date();
+      return formatDateStr(t.getFullYear(), t.getMonth() + 1, t.getDate());
+    }
+    function fiDate(str) {
+      const [y, m, d] = str.split('-').map(Number);
+      return `${d}.${m}.${y}`;
+    }
+    function isOffShift(s) {
+      const c = (s.code || '').toLowerCase();
+      return c === 'vp' || c.includes('pekka');
+    }
+    function hhmm(min) { return `${Math.floor(min / 60)}:${p2(Math.round(min % 60))}`; }
+    function parseHM(str) {
+      const m = String(str || '').match(/^(\d{1,3}):(\d{2})$/);
+      return m ? (+m[1]) * 60 + (+m[2]) : NaN;
+    }
+
+    function getWeekdayGroup(dateStr) {
+      const day = parseLocalDate(dateStr).getDay();
+      if (day >= 1 && day <= 4) return 'ma-to';
+      if (day === 5) return 'pe';
+      if (day === 6) return 'la';
+      return 'su';
+    }
+
+    // ---------- Ajosarjojen haku ----------
+    function getVariants(code, group) {
+      const t = ajosarjaTemplates[String(code || '').toUpperCase()];
+      return (t && t[group]) || [];
+    }
+    function latestVariant(list) {
+      return list.reduce((best, v) => (!best || (v.importedAt || 0) >= (best.importedAt || 0)) ? v : best, null);
+    }
+    // Valitsee ajosarjan, jonka alku- ja loppuaika täsmää vuoroon. Sama koodi voi olla
+    // eri aikoina esim. aikataulumuutoksen jälkeen, siksi vaihtoehtoja tallennetaan useita.
+    function findTemplate(shift) {
+      if (!shift || !shift.code || isOffShift(shift)) return null;
+      const variants = getVariants(shift.code, getWeekdayGroup(shift.date));
+      if (!variants.length) return null;
+      if (shift.start && shift.end) {
+        return variants.find(v => v.start === shift.start && v.end === shift.end) || null;
+      }
+      return latestVariant(variants);
+    }
+
+    function getShiftStatus(shift) {
+      if (!shift || !shift.code || isOffShift(shift)) return 'ok';
+      if (!getVariants(shift.code, getWeekdayGroup(shift.date)).length) return 'missing_template';
+      return findTemplate(shift) ? 'ok' : 'mismatch';
+    }
+
+    // Palkallinen työaika: ajosarjan "Työaika" jos löytyy, muuten vuoron pituus (arvio)
+    function shiftMinutes(shift) {
+      const tpl = findTemplate(shift);
+      const wt = tpl && tpl.summary && parseHM(tpl.summary.workTime);
+      if (wt && !isNaN(wt)) return { min: wt, exact: true };
+      return { min: Math.round(calculateHours(shift.start, shift.end, shift.overnight) * 60), exact: false };
+    }
+
+    function calculateHours(start, end, overnight) {
+      if (!start || !end) return 0;
+      const [h1, m1] = start.replace('.', ':').split(':').map(Number);
+      const [h2, m2] = end.replace('.', ':').split(':').map(Number);
+      if (isNaN(h1) || isNaN(m1) || isNaN(h2) || isNaN(m2)) return 0;
+      let t1 = h1 * 60 + m1, t2 = h2 * 60 + m2;
+      if (overnight || t2 < t1) t2 += 24 * 60;
+      return (t2 - t1) / 60;
+    }
+
+    // ---------- Kalenteri ----------
+    function renderCalendar() {
+      const year = currentDate.getFullYear();
+      const month = currentDate.getMonth();
+      const today = todayStr();
+      lastRenderedToday = today;
+
+      document.getElementById('current-month-display').innerText = `${FinnishMonths[month]} ${year}`;
+      document.getElementById('calendar-header-title').innerText = `${FinnishMonths[month].toUpperCase()} ${year}`;
+
+      const gridContainer = document.getElementById('calendar-days');
+      gridContainer.innerHTML = '';
+
+      const firstDay = new Date(year, month, 1);
+      let startingDay = firstDay.getDay() - 1;
+      if (startingDay === -1) startingDay = 6;
+
+      const totalDays = new Date(year, month + 1, 0).getDate();
+
+      for (let i = 0; i < startingDay; i++) {
+        const emptyCell = document.createElement('div');
+        emptyCell.className = 'min-h-[64px] border border-transparent';
+        gridContainer.appendChild(emptyCell);
+      }
+
+      for (let day = 1; day <= totalDays; day++) {
+        const dateStr = formatDateStr(year, month + 1, day);
+        let shift = shifts.find(s => s.date === dateStr);
+
+        // Jos vuorolla ei ole aikoja, täytetään ne ajosarjasta
+        if (shift && shift.code && (!shift.start || !shift.end) && !isOffShift(shift)) {
+          const v = latestVariant(getVariants(shift.code, getWeekdayGroup(dateStr)));
+          if (v) {
+            shift.start = v.start;
+            shift.end = v.end;
+            shift.overnight = v.overnight;
+            if (!shift.location && v.place) shift.location = v.place;
+          }
+        }
+
+        const status = getShiftStatus(shift);
+        const isSelected = selectedDateStr === dateStr;
+        const isToday = dateStr === today;
+
+        let bgStyle = 'bg-slate-900/90 border-slate-800';
+        if (isSelected) {
+          bgStyle = 'bg-indigo-950/70 border-indigo-500 ring-2 ring-indigo-500/80';
+        } else if (isToday) {
+          bgStyle = 'bg-teal-950/40 border-teal-400 ring-1 ring-teal-400/70';
+        } else if (shift) {
+          if (shift.code.toUpperCase() === 'VP') bgStyle = 'bg-slate-900/50 border-emerald-900/30';
+          else if (shift.code.toLowerCase().includes('pekka')) bgStyle = 'bg-purple-950/30 border-purple-800/40';
+          else bgStyle = 'bg-slate-900 border-teal-900/50 shadow-sm';
+        }
+
+        const cell = document.createElement('div');
+        cell.className = `min-h-[64px] border rounded-xl p-1 flex flex-col justify-between cursor-pointer transition relative hover:border-teal-400/80 overflow-hidden ${bgStyle}`;
+        cell.onclick = () => {
+          selectDate(dateStr);
+          if (shift && shift.code && !isOffShift(shift)) {
+            openDetailModal(shift.code, dateStr);
+          }
+        };
+
+        let indicatorHTML = '';
+        if (status === 'missing_template') {
+          indicatorHTML = `<div class="absolute top-1 right-1 w-2 h-2 rounded-full bg-yellow-400" title="Ajosarjaa ei muistissa"></div>`;
+        } else if (status === 'mismatch') {
+          indicatorHTML = `<div class="absolute top-1 right-1 w-2 h-2 rounded-full bg-red-500" title="Ajat eivät täsmää tallennettuun ajosarjaan"></div>`;
+        }
+
+        let contentHTML = '';
+        if (shift) {
+          const isVP = shift.code.toUpperCase() === 'VP';
+          const isPekkanen = shift.code.toLowerCase().includes('pekka');
+
+          if (isVP) {
+            contentHTML = `<div class="mt-0.5 mb-1 flex justify-center"><span class="text-[9px] font-extrabold text-emerald-400 bg-emerald-950/80 border border-emerald-800/60 px-1 py-0.2 rounded">VP</span></div><div class="text-[9px] text-emerald-500/80 font-bold text-center leading-tight">Vapaa</div>`;
+          } else if (isPekkanen) {
+            contentHTML = `<div class="mt-0.5 mb-1 flex justify-center"><span class="text-[9px] font-extrabold text-purple-300 bg-purple-950/80 border border-purple-800/60 px-1 py-0.2 rounded truncate max-w-full">Pekkanen</span></div><div class="text-[9px] text-purple-400/80 font-bold text-center leading-tight">Vapaa</div>`;
+          } else {
+            const timeDisplay = (shift.start && shift.end) ? `${shift.start} - ${shift.end}${shift.overnight ? '+' : ''}` : '';
+            contentHTML = `<div class="mt-0.5 flex justify-center"><span class="text-[9px] font-black text-teal-300 bg-teal-950/90 border border-teal-700/60 px-1 rounded truncate max-w-full">${esc(shift.code)}</span></div>${timeDisplay ? `<div class="text-[9px] font-extrabold text-slate-100 text-center tracking-tighter mt-0.5 bg-slate-950/80 py-0.5 rounded border border-slate-800/80 leading-none">${timeDisplay}</div>` : ''}`;
+          }
+        } else {
+          contentHTML = `<div class="flex-1"></div>`;
+        }
+
+        const dayNumHTML = isToday
+          ? `<span class="text-[10px] font-extrabold text-slate-950 bg-teal-400 rounded-full min-w-[16px] h-4 px-1 flex items-center justify-center leading-none">${day}</span>`
+          : `<span class="text-[10px] font-extrabold ${shift ? 'text-slate-200' : 'text-slate-500'}">${day}</span>`;
+
+        cell.innerHTML = `${indicatorHTML}<div class="flex justify-between items-center w-full">${dayNumHTML}${shift && shift.location ? `<span class="text-[7px] text-slate-400 font-medium truncate max-w-[28px]">${esc(shift.location)}</span>` : ''}</div>${contentHTML}`;
+        gridContainer.appendChild(cell);
+      }
+      saveToStorage();
+    }
+
+    function changeMonth(delta) {
+      // Aina kuun ensimmäisestä päivästä, ettei esim. 31. päivä ohita kuukautta
+      currentDate = new Date(currentDate.getFullYear(), currentDate.getMonth() + delta, 1);
+      renderCalendar();
+      updateStats();
+      renderShiftList();
+    }
+
+    function resetMonthToToday() {
+      const today = new Date();
+      currentDate = new Date(today.getFullYear(), today.getMonth(), 1);
+      selectedDateStr = formatDateStr(today.getFullYear(), today.getMonth() + 1, today.getDate());
+      renderCalendar();
+      updateStats();
+      renderShiftList();
+    }
+
+    function selectDate(dateStr) {
+      selectedDateStr = selectedDateStr === dateStr ? null : dateStr;
+      renderCalendar();
+      renderShiftList();
+    }
+
+    // ---------- Vuorolista ----------
+    function renderShiftList() {
+      const container = document.getElementById('shift-list-container');
+      container.innerHTML = '';
+
+      const year = currentDate.getFullYear();
+      const month = currentDate.getMonth() + 1;
+      const today = todayStr();
+
+      let monthShifts = shifts.filter(s => {
+        const [sYear, sMonth] = s.date.split('-').map(Number);
+        return sYear === year && sMonth === month;
+      });
+
+      if (selectedDateStr) {
+        monthShifts = monthShifts.filter(s => s.date === selectedDateStr);
+      }
+
+      monthShifts.sort((a, b) => a.date.localeCompare(b.date));
+
+      if (monthShifts.length === 0) {
+        container.innerHTML = `<div class="text-center py-8 text-slate-500 text-xs border border-dashed border-slate-800 rounded-2xl">Ei työvuoroja tässä valinnassa.</div>`;
+        return;
+      }
+
+      monthShifts.forEach(shift => {
+        const dateObj = parseLocalDate(shift.date);
+        const dayNum = dateObj.getDate();
+        const weekday = WEEKDAYS_SHORT[dateObj.getDay()];
+        const status = getShiftStatus(shift);
+        const isToday = shift.date === today;
+
+        const isVP = shift.code.toUpperCase() === 'VP';
+        const isPekkanen = shift.code.toLowerCase().includes('pekka');
+        const isOff = isVP || isPekkanen;
+
+        const mins = isOff ? { min: 0, exact: false } : shiftMinutes(shift);
+        const tpl = isOff ? null : findTemplate(shift);
+        const kierto = tpl && tpl.kierto && tpl.kierto.length ? tpl.kierto : [];
+
+        let statusBadge = '';
+        if (status === 'missing_template') {
+          statusBadge = `<span class="text-[9px] text-yellow-300 bg-yellow-950/40 border border-yellow-700/50 px-1.5 py-0.5 rounded flex items-center gap-1"><i class="fa-solid fa-circle text-[6px]"></i> Puuttuu ajosarja</span>`;
+        } else if (status === 'mismatch') {
+          statusBadge = `<span class="text-[9px] text-red-400 bg-red-950/40 border border-red-800/50 px-1.5 py-0.5 rounded flex items-center gap-1"><i class="fa-solid fa-circle text-[6px]"></i> Eri ajat kuin ajosarjassa</span>`;
+        }
+        const todayBadge = isToday
+          ? `<span class="text-[9px] font-extrabold text-slate-950 bg-teal-400 px-1.5 py-0.5 rounded">TÄNÄÄN</span>`
+          : '';
+
+        const baseBorder = isToday ? 'border-teal-400/80 ring-1 ring-teal-400/40' : '';
+        const card = document.createElement('div');
+        card.className = `p-3 rounded-2xl border flex justify-between items-center transition ${isVP ? 'bg-slate-900/40 border-slate-800/80' : isPekkanen ? 'bg-purple-950/20 border-purple-900/30' : 'bg-slate-900/90 border-slate-800'} ${baseBorder} cursor-pointer hover:border-teal-500/50`;
+        card.onclick = (e) => {
+          if (e.target.closest('button')) return;
+          if (!isOff) openDetailModal(shift.code, shift.date);
+        };
+
+        const timeText = shift.start && shift.end ? `${shift.start} - ${shift.end}${shift.overnight ? '+' : ''}` : (isVP ? 'Vapaapäivä' : 'Koko päivä');
+        const hoursChip = mins.min > 0
+          ? `<span class="text-xs font-extrabold text-slate-200 bg-slate-800 px-2 py-1 rounded-lg border border-slate-700/60 whitespace-nowrap" title="${mins.exact ? 'Työaika ajosarjasta' : 'Arvio: vuoron pituus'}">${mins.exact ? '' : '~'}${hhmm(mins.min)} h</span>`
+          : '';
+        const kiertoLine = kierto.length
+          ? `<div class="text-[10px] text-slate-400 mt-0.5"><i class="fa-solid fa-rotate text-[8px] mr-1 text-indigo-300"></i>Kierto ${kierto.map(esc).join(' ➔ ')}</div>`
+          : '';
+
+        card.innerHTML = `<div class="flex items-center gap-3"><div class="w-10 h-10 rounded-xl bg-slate-950 border ${isToday ? 'border-teal-400/70' : 'border-slate-800'} flex flex-col items-center justify-center"><span class="text-[9px] text-slate-400 font-semibold uppercase">${weekday}</span><span class="text-xs font-extrabold ${isToday ? 'text-teal-300' : 'text-slate-200'}">${dayNum}</span></div><div><div class="flex items-center gap-2 flex-wrap"><span class="text-xs font-extrabold ${isVP ? 'text-emerald-400' : isPekkanen ? 'text-purple-300' : 'text-teal-300'}">${esc(shift.code)}</span>${shift.location ? `<span class="text-[10px] text-slate-400 bg-slate-950 px-1.5 py-0.5 rounded border border-slate-800">${esc(shift.location)}</span>` : ''}${todayBadge}${statusBadge}</div><div class="text-[11px] text-slate-300 font-semibold mt-0.5">${timeText}</div>${kiertoLine}</div></div><div class="flex items-center gap-2">${hoursChip}<button onclick="openEditShiftModal('${esc(shift.id)}')" class="w-8 h-8 rounded-lg bg-slate-950 border border-slate-800 flex items-center justify-center text-slate-400 hover:text-slate-200 transition"><i class="fa-solid fa-pen text-[10px]"></i></button></div>`;
+        container.appendChild(card);
+      });
+    }
+
+    // ---------- Ajosarjan erittely ----------
+    function stepKind(type) {
+      const t = (type || '').toLowerCase();
+      if (t.startsWith('linja')) return 'drive';
+      if (t.startsWith('tauko')) return 'break';
+      if (t.startsWith('kääntö') || t.startsWith('odotus')) return 'layover';
+      if (t.startsWith('aloitus') || t.startsWith('lopetus')) return 'edge';
+      return 'transfer';
+    }
+    const KIND_COLOR = { drive: 'text-teal-400', break: 'text-amber-400', edge: 'text-emerald-400', transfer: 'text-indigo-300', layover: 'text-slate-500' };
+
+    function toggleLayovers(on) {
+      showLayovers = !!on;
+      try { localStorage.setItem('app_show_layovers', JSON.stringify(showLayovers)); } catch (e) {}
+      if (currentDetail) openDetailModal(currentDetail.code, currentDetail.dateStr, true);
+    }
+
+    function openDetailModal(code, dateStr, keepOpen) {
+      currentDetail = { code, dateStr };
+      const group = getWeekdayGroup(dateStr);
+      const codeUp = code.toUpperCase();
+      const shift = shifts.find(s => s.date === dateStr);
+      const variants = getVariants(codeUp, group);
+      const templ = shift ? findTemplate(shift) : latestVariant(variants);
+
+      const wd = WEEKDAYS_SHORT[parseLocalDate(dateStr).getDay()];
+      document.getElementById('detail-modal-title').innerHTML = `<i class="fa-solid fa-clock-rotate-left"></i> Ajosarja ${esc(codeUp)}`;
+      document.getElementById('detail-modal-subtitle').innerText = `${wd} ${fiDate(dateStr)} (${GROUP_LABELS[group]})`;
+      document.getElementById('toggle-layovers').checked = showLayovers;
+
+      const contentContainer = document.getElementById('detail-modal-content');
+      contentContainer.innerHTML = '';
+      document.getElementById('detail-toggle-row').classList.toggle('hidden', !templ);
+
+      if (!templ) {
+        const hasOthers = variants.length > 0;
+        const times = variants.map(v => `${v.start}–${v.end}`).join(', ');
+        contentContainer.innerHTML = `<div class="text-center py-6 text-slate-400 space-y-3">
+          <div>${hasOthers
+            ? `Tämän päivän ajat (${shift && shift.start ? `${shift.start}–${shift.end}` : '–'}) eivät täsmää tallennettuun ajosarjaan ${esc(codeUp)} (${esc(times)}). Aikataulu on voinut muuttua.`
+            : `Ajosarjalle ${esc(codeUp)} (${GROUP_LABELS[group]}) ei ole vielä tallennettu erittelyä.`}</div>
+          <div>Lataa ajosarjan PDF (Tarkemmat tiedot) tältä päivältä.</div>
+          <button onclick="closeModal('detail-modal'); openModal('upload-modal')" class="bg-teal-600 hover:bg-teal-500 text-white font-semibold text-xs py-2 px-4 rounded-lg transition">Lataa PDF</button>
+        </div>`;
+      } else {
+        const sm = templ.summary || {};
+        const kiertoChips = (templ.kierto || []).map(k => `<span class="text-[10px] font-bold text-indigo-200 bg-indigo-950/70 border border-indigo-800/60 px-1.5 py-0.5 rounded">${esc(k)}</span>`).join('<i class="fa-solid fa-arrow-right text-[8px] text-slate-500 mx-1"></i>');
+        const row = (label, value, cls) => value ? `<div class="flex justify-between items-center pt-0.5 text-[11px]"><span class="text-slate-400">${label}</span><span class="font-bold ${cls || 'text-slate-100'}">${esc(value)}</span></div>` : '';
+
+        let html = `
+          <div class="bg-slate-800/90 p-3 rounded-2xl border border-slate-700/80 mb-3 space-y-1.5">
+            <div class="flex justify-between items-center pb-1 border-b border-slate-700/60">
+              <span class="text-slate-400 font-bold text-[11px]">Kokonaisaika:</span>
+              <span class="text-teal-400 font-extrabold text-xs">${templ.start} – ${templ.end}${templ.overnight ? '+' : ''}</span>
+            </div>
+            ${row('Työaika:', sm.workTime)}
+            ${row('Taukoaika:', sm.breakTime)}
+            ${row('Iltalisä HSL:', sm.evening)}
+            ${kiertoChips ? `<div class="flex justify-between items-center pt-1 text-[11px]"><span class="text-slate-400">Kiertonumero:</span><span class="flex items-center flex-wrap justify-end">${kiertoChips}</span></div>` : ''}
+            ${templ.legacy ? `<div class="text-[10px] text-yellow-300 pt-1">Vanha tallenne (ei PDF:stä). Lataa ajosarjan PDF päivittääksesi.</div>` : ''}
+          </div>`;
+
+        const steps = templ.steps || [];
+        if (!steps.length) {
+          html += `<div class="bg-slate-800/50 p-3 rounded-xl border border-slate-800 text-slate-300 text-center">Ei tarkempia välivaiheita.</div>`;
+        } else {
+          let prevKierto = '';
+          steps.forEach((step, i) => {
+            const kind = stepKind(step.type);
+
+            // Odotus askelten välissä (loppuaika ≠ seuraavan alkuaika)
+            if (showLayovers && i > 0) {
+              const prevEnd = clockToMin(steps[i - 1].end || steps[i - 1].start);
+              let gap = clockToMin(step.start) - prevEnd;
+              if (gap < 0) gap += 1440;
+              if (gap > 0 && gap < 180) {
+                html += `<div class="text-[10px] text-slate-500 px-3 py-1 flex justify-between"><span>Odotus</span><span>${steps[i - 1].end || steps[i - 1].start} – ${step.start} (${gap} min)</span></div>`;
+              }
+            }
+
+            if (kind === 'layover') {
+              if (!showLayovers) return;
+              html += `<div class="text-[10px] text-slate-500 px-3 py-1 flex justify-between"><span>${esc(step.type)}${step.from ? ' · ' + esc(step.from) : ''}</span><span>${step.start} – ${step.end}</span></div>`;
+              return;
+            }
+
+            const timeStr = step.end && step.end !== step.start ? `${step.start} – ${step.end}` : step.start;
+            let dur = '';
+            if (kind === 'break' && step.end) {
+              let d = clockToMin(step.end) - clockToMin(step.start);
+              if (d < 0) d += 1440;
+              dur = `<span class="text-[10px] text-amber-300/80 block text-right">${d} min</span>`;
+            }
+            const label = step.type + (step.note ? ` (${step.note})` : '');
+            const route = step.from ? (step.to && step.to !== step.from ? `${esc(step.from)} ➔ ${esc(step.to)}` : esc(step.from)) : '';
+            const lineChip = step.lineNo && kind === 'drive'
+              ? `<span class="text-[10px] font-extrabold text-teal-200 bg-teal-950/70 border border-teal-800/60 px-1.5 py-0.5 rounded">Linja ${esc(step.lineNo)}</span>` : '';
+            const changed = step.kierto && prevKierto && step.kierto !== prevKierto;
+            const kiertoChip = step.kierto && (kind === 'drive' || step.type.toLowerCase().startsWith('halli'))
+              ? `<span class="text-[10px] font-bold ${changed ? 'text-amber-200 bg-amber-950/60 border-amber-700/60' : 'text-indigo-200 bg-indigo-950/60 border-indigo-800/50'} border px-1.5 py-0.5 rounded">Kierto ${esc(step.kierto)}${changed ? ' (vaihtuu)' : ''}</span>` : '';
+            if (step.kierto) prevKierto = step.kierto;
+
+            html += `
+              <div class="bg-slate-800/60 p-2.5 rounded-xl border border-slate-800 flex justify-between items-center gap-2">
+                <div class="min-w-0">
+                  <span class="text-[10px] font-bold uppercase tracking-wider ${KIND_COLOR[kind]} block">${esc(label)}</span>
+                  ${route ? `<span class="text-slate-200 font-semibold text-xs block">${route}</span>` : ''}
+                  ${(lineChip || kiertoChip) ? `<div class="flex flex-wrap gap-1 mt-1">${lineChip}${kiertoChip}</div>` : ''}
+                </div>
+                <div class="ml-2 shrink-0">
+                  <span class="text-xs font-extrabold text-slate-200 bg-slate-900 px-2.5 py-1 rounded-lg border border-slate-700/80 whitespace-nowrap block">${timeStr}</span>
+                  ${dur}
+                </div>
+              </div>`;
+
+            if (showLayovers && step.waits && step.waits.length) {
+              const waits = step.waits.filter(w => !/^00:00:\d\d$/.test(w.dur));
+              waits.forEach(w => {
+                html += `<div class="text-[10px] text-slate-500 px-3 -mt-1 pb-1">Odotus lähtöön ${w.dep}: ${esc(w.dur)} (${esc(w.place)})</div>`;
+              });
+            }
+          });
+        }
+        contentContainer.innerHTML = html;
+      }
+      if (!keepOpen) openModal('detail-modal');
+    }
+
+    // ---------- Tilastot ----------
+    function updateStats() {
+      const year = currentDate.getFullYear();
+      const month = currentDate.getMonth() + 1;
+
+      const monthShifts = shifts.filter(s => {
+        const [sYear, sMonth] = s.date.split('-').map(Number);
+        return sYear === year && sMonth === month;
+      });
+
+      let totalMin = 0, shiftCount = 0, offCount = 0, nightCount = 0, estimated = 0;
+
+      monthShifts.forEach(s => {
+        if (isOffShift(s)) {
+          offCount++;
+        } else {
+          shiftCount++;
+          const m = shiftMinutes(s);
+          totalMin += m.min;
+          if (!m.exact && m.min > 0) estimated++;
+          if (s.overnight) nightCount++;
+        }
+      });
+
+      const hoursEl = document.getElementById('stat-hours');
+      hoursEl.innerText = `${estimated ? '~' : ''}${(totalMin / 60).toFixed(1).replace('.', ',')} h`;
+      hoursEl.title = estimated ? `${estimated} vuoron työaika on arvio (ajosarja puuttuu)` : 'Työaika ajosarjojen mukaan';
+      document.getElementById('stat-shifts').innerText = shiftCount;
+      document.getElementById('stat-off').innerText = offCount;
+      document.getElementById('stat-night').innerText = nightCount;
+    }
+
+    function clearCurrentMonthShifts() {
+      const year = currentDate.getFullYear(), month = currentDate.getMonth() + 1;
+      shifts = shifts.filter(s => {
+        const [sYear, sMonth] = s.date.split('-').map(Number);
+        return !(sYear === year && sMonth === month);
+      });
+      saveToStorage(); renderCalendar(); updateStats(); renderShiftList();
+      showToast('Kuukauden vuorot tyhjennetty', 'info');
+    }
+
+    // ---------- Tallennetut ajosarjat (asetukset) ----------
+    function updateSavedTemplatesSummary() {
+      const container = document.getElementById('saved-templates-summary');
+      const codes = Object.keys(ajosarjaTemplates).sort();
+      if (codes.length === 0) {
+        container.innerHTML = '<span class="text-slate-500">Ei tallennettuja ajosarjoja.</span>';
+        return;
+      }
+
+      container.innerHTML = codes.map(c => {
+        const rows = [];
+        Object.keys(ajosarjaTemplates[c]).forEach(g => {
+          ajosarjaTemplates[c][g].forEach((v, idx) => {
+            rows.push(`<div class="flex justify-between items-center gap-2">
+              <span class="text-[10px] text-slate-300">${GROUP_LABELS[g] || g.toUpperCase()} · ${v.start}–${v.end}${v.overnight ? '+' : ''}${v.legacy ? ' <span class="text-yellow-300">(vanha)</span>' : ''}${v.kierto && v.kierto.length ? ` · kierto ${v.kierto.map(esc).join('/')}` : ''}</span>
+              <button onclick="deleteVariant('${esc(c)}','${esc(g)}',${idx})" class="text-red-400 hover:text-red-300 p-1 rounded-lg bg-red-950/30 border border-red-900/40"><i class="fa-solid fa-trash-can text-[10px]"></i></button>
+            </div>`);
+          });
+        });
+        return `<div class="bg-slate-900 p-2 rounded-xl border border-slate-800 space-y-1">
+          <span class="font-bold text-teal-300 text-xs block">${esc(c)}</span>${rows.join('')}</div>`;
+      }).join('');
+    }
+
+    function deleteVariant(code, group, idx) {
+      const list = ajosarjaTemplates[code] && ajosarjaTemplates[code][group];
+      if (!list || !list[idx]) return;
+      if (!confirm(`Poistetaanko ajosarja ${code} (${GROUP_LABELS[group] || group}, ${list[idx].start}–${list[idx].end}) muistista?`)) return;
+      list.splice(idx, 1);
+      if (!list.length) delete ajosarjaTemplates[code][group];
+      if (!Object.keys(ajosarjaTemplates[code]).length) delete ajosarjaTemplates[code];
+      saveToStorage();
+      updateSavedTemplatesSummary();
+      renderCalendar(); updateStats(); renderShiftList();
+      showToast(`Ajosarja ${code} poistettu`, 'info');
+    }
+
+    // ---------- PDF-tuonti ----------
+    async function handlePdfUpload(event) {
+      const files = Array.from(event.target.files || []);
+      event.target.value = '';   // sama tiedosto voidaan valita uudelleen
+      if (!files.length) return;
+      if (!window.pdfjsLib) { showToast('PDF-lukija ei ole vielä latautunut, yritä hetken päästä uudelleen', 'error'); return; }
+
+      pendingShifts = [];
+      pendingTemplates = [];
+      importProblems = [];
+
+      for (let fi = 0; fi < files.length; fi++) {
+        const file = files[fi];
+        if (files.length > 1) showToast(`Luetaan ${fi + 1} / ${files.length}...`, 'info');
+        else showToast('Luetaan PDF:ää...', 'info');
+        await new Promise(r => setTimeout(r, 0));   // annetaan näytön päivittyä
+        let pdf = null;
+        try {
+          const buf = await file.arrayBuffer();
+          pdf = await pdfjsLib.getDocument({ data: buf }).promise;
+          const pages = await extractPdfPages(pdf);
+          const type = detectPdfType(pages);
+
+          if (type === 'roster') {
+            const r = parseRosterPages(pages, { year: currentDate.getFullYear(), month: currentDate.getMonth() + 1 });
+            if (r.error) { importProblems.push(`${file.name}: ${r.error}`); continue; }
+            // Sama päivä vain kerran: myöhemmin ladattu lista korvaa aiemman
+            const newDates = new Set(r.shifts.map(s => s.date));
+            pendingShifts = pendingShifts.filter(s => !newDates.has(s.date));
+            r.shifts.forEach(s => pendingShifts.push({ id: Date.now().toString() + Math.random().toString(36).slice(2, 6), ...s }));
+            r.warnings.forEach(w => importProblems.push(`${file.name}: ${w}`));
+            // Siirrytään tuodun kuukauden näkymään
+            currentDate = new Date(r.year, r.month - 1, 1);
+          } else if (type === 'ajosarja') {
+            const r = parseAjosarjaPages(pages);
+            if (r.error) { importProblems.push(`${file.name}: ${r.error}`); continue; }
+            r.group = getWeekdayGroup(r.date);
+            r.file = file.name;
+            // Sama ajosarja (koodi, ryhmä, ajat) vain kerran: myöhempi korvaa aiemman
+            pendingTemplates = pendingTemplates.filter(t => !(t.code === r.code && t.group === r.group && t.start === r.start && t.end === r.end));
+            pendingTemplates.push(r);
+            r.warnings.forEach(w => importProblems.push(`${r.code}: ${w}`));
+          } else {
+            importProblems.push(`${file.name}: PDF-tyyppiä ei tunnistettu (ei työvuorolista eikä ajosarja).`);
+          }
+        } catch (err) {
+          console.error(err);
+          importProblems.push(`${file.name}: tiedoston lukeminen epäonnistui.`);
+        } finally {
+          if (pdf && pdf.destroy) { try { pdf.destroy(); } catch (e) {} }
+        }
+      }
+
+      closeModal('upload-modal');
+      renderImportPreview();
+      openModal('preview-modal');
+    }
+
+    function templateExists(t) {
+      return getVariants(t.code, t.group).some(v => v.start === t.start && v.end === t.end);
+    }
+
+    function renderImportPreview() {
+      const container = document.getElementById('preview-list-container');
+      container.innerHTML = '';
+
+      const sub = [];
+      if (pendingShifts.length) sub.push(`${pendingShifts.length} vuoroa`);
+      if (pendingTemplates.length) sub.push(`${pendingTemplates.length} ajosarjaa`);
+      document.getElementById('preview-subtitle').innerText = sub.length ? `${sub.join(' · ')} tunnistettu` : 'Mitään ei tunnistettu';
+      document.getElementById('btn-confirm-import').classList.toggle('hidden', !sub.length);
+
+      if (importProblems.length) {
+        const box = document.createElement('div');
+        box.className = 'p-2.5 bg-yellow-950/30 border border-yellow-700/50 rounded-xl text-[11px] text-yellow-200 space-y-1';
+        box.innerHTML = `<div class="font-bold"><i class="fa-solid fa-triangle-exclamation mr-1.5"></i>Tarkista:</div>` + importProblems.map(p => `<div>• ${esc(p)}</div>`).join('');
+        container.appendChild(box);
+      }
+
+      if (pendingTemplates.length) {
+        const h = document.createElement('div');
+        h.className = 'text-[10px] font-bold text-slate-400 uppercase tracking-wider pt-1';
+        h.innerText = 'Ajosarjat';
+        container.appendChild(h);
+        pendingTemplates.forEach((t, idx) => {
+          const wd = WEEKDAYS_SHORT[parseLocalDate(t.date).getDay()];
+          const item = document.createElement('div');
+          item.className = 'p-2 bg-slate-800/80 border border-slate-700/60 rounded-xl flex items-center justify-between text-xs gap-2';
+          item.innerHTML = `<div class="min-w-0">
+              <div class="flex items-center gap-2 flex-wrap"><span class="font-extrabold text-teal-400">${esc(t.code)}</span><span class="text-slate-400 text-[11px]">${wd} ${fiDate(t.date)} · ${GROUP_LABELS[t.group]}</span>${templateExists(t) ? '<span class="text-[9px] text-amber-300 bg-amber-950/40 border border-amber-800/50 px-1.5 py-0.5 rounded">päivittää</span>' : ''}</div>
+              <div class="text-[11px] text-slate-300 mt-0.5">${t.start}–${t.end}${t.overnight ? '+' : ''} · ${t.steps.length} vaihetta${t.summary.workTime ? ' · työaika ' + esc(t.summary.workTime) : ''}</div>
+              ${t.kierto.length ? `<div class="text-[10px] text-slate-400">Kierto ${t.kierto.map(esc).join(' ➔ ')}</div>` : ''}
+            </div>
+            <button onclick="pendingTemplates.splice(${idx},1); renderImportPreview();" class="text-red-400 p-1"><i class="fa-solid fa-trash"></i></button>`;
+          container.appendChild(item);
+        });
+      }
+
+      if (pendingShifts.length) {
+        const h = document.createElement('div');
+        h.className = 'text-[10px] font-bold text-slate-400 uppercase tracking-wider pt-2';
+        h.innerText = 'Työvuorot';
+        container.appendChild(h);
+        pendingShifts.forEach((s, idx) => {
+          const wd = WEEKDAYS_SHORT[parseLocalDate(s.date).getDay()];
+          const item = document.createElement('div');
+          item.className = 'p-2 bg-slate-800/80 border border-slate-700/60 rounded-xl flex items-center justify-between text-xs';
+          item.innerHTML = `<div class="flex items-center gap-2"><span class="font-bold text-slate-300 w-14">${wd} ${fiDate(s.date).slice(0, -5)}</span><span class="font-extrabold text-teal-400">${esc(s.code)}</span><span>${s.start ? s.start + '-' + s.end + (s.overnight ? '+' : '') : 'Vapaa'}</span></div><button onclick="pendingShifts.splice(${idx},1); renderImportPreview();" class="text-red-400"><i class="fa-solid fa-trash"></i></button>`;
+          container.appendChild(item);
+        });
+      }
+    }
+
+    function storeTemplate(t) {
+      const code = t.code.toUpperCase();
+      if (!ajosarjaTemplates[code]) ajosarjaTemplates[code] = {};
+      if (!ajosarjaTemplates[code][t.group]) ajosarjaTemplates[code][t.group] = [];
+      const variant = {
+        start: t.start, end: t.end, overnight: t.overnight, place: t.place,
+        summary: t.summary, kierto: t.kierto, steps: t.steps,
+        sourceDate: t.date, importedAt: Date.now()
+      };
+      const list = ajosarjaTemplates[code][t.group];
+      const i = list.findIndex(v => v.start === t.start && v.end === t.end);
+      if (i >= 0) list[i] = variant; else list.push(variant);
+    }
+
+    function confirmImport() {
+      const tCount = pendingTemplates.length, sCount = pendingShifts.length;
+      pendingTemplates.forEach(storeTemplate);
+      pendingShifts.forEach(parsed => {
+        shifts = shifts.filter(s => s.date !== parsed.date);
+        shifts.push(parsed);
+      });
+      pendingTemplates = []; pendingShifts = []; importProblems = [];
+      saveToStorage(); renderAll();
+      closeModal('preview-modal');
+      const parts = [];
+      if (sCount) parts.push(`${sCount} vuoroa`);
+      if (tCount) parts.push(`${tCount} ajosarjaa`);
+      showToast(`${parts.join(' ja ')} tallennettu!`, 'success');
+    }
+
+    // ---------- Vuoron lisäys / muokkaus ----------
+    function onManualCodeInput() {
+      const code = document.getElementById('shift-code').value.trim().toUpperCase();
+      const dateStr = document.getElementById('shift-date').value;
+      if (!code || !dateStr) return;
+
+      const v = latestVariant(getVariants(code, getWeekdayGroup(dateStr)));
+      if (v) {
+        document.getElementById('shift-start').value = v.start ? v.start.replace('.', ':') : '';
+        document.getElementById('shift-end').value = v.end ? v.end.replace('.', ':') : '';
+        document.getElementById('shift-overnight').checked = !!v.overnight;
+        if (v.place && !document.getElementById('shift-location').value) document.getElementById('shift-location').value = v.place;
+      }
+    }
+
+    function onManualDateChange() {
+      onManualCodeInput();
+    }
+
+    function openAddShiftModal() {
+      document.getElementById('shift-modal-title').innerText = 'Lisää vuoro';
+      document.getElementById('shift-id').value = '';
+      document.getElementById('shift-date').value = selectedDateStr || formatDateStr(currentDate.getFullYear(), currentDate.getMonth() + 1, 1);
+      document.getElementById('shift-code').value = ''; document.getElementById('shift-location').value = '';
+      document.getElementById('shift-start').value = ''; document.getElementById('shift-end').value = '';
+      document.getElementById('shift-overnight').checked = false;
+      document.getElementById('btn-delete-shift').classList.add('hidden');
+      openModal('shift-modal');
+    }
+
+    function openEditShiftModal(id) {
+      const shift = shifts.find(s => s.id === id);
+      if (!shift) return;
+      document.getElementById('shift-modal-title').innerText = 'Muokkaa vuoroa';
+      document.getElementById('shift-id').value = shift.id;
+      document.getElementById('shift-date').value = shift.date;
+      document.getElementById('shift-code').value = shift.code;
+      document.getElementById('shift-location').value = shift.location || '';
+      document.getElementById('shift-start').value = shift.start ? shift.start.replace('.', ':') : '';
+      document.getElementById('shift-end').value = shift.end ? shift.end.replace('.', ':') : '';
+      document.getElementById('shift-overnight').checked = !!shift.overnight;
+      document.getElementById('btn-delete-shift').classList.remove('hidden');
+      openModal('shift-modal');
+    }
+
+    function saveManualShift(event) {
+      event.preventDefault();
+      const id = document.getElementById('shift-id').value;
+      const date = document.getElementById('shift-date').value;
+      const code = document.getElementById('shift-code').value.trim();
+      const location = document.getElementById('shift-location').value.trim();
+      let start = document.getElementById('shift-start').value;
+      let end = document.getElementById('shift-end').value;
+      const overnight = document.getElementById('shift-overnight').checked;
+
+      if (start) start = start.replace(':', '.');
+      if (end) end = end.replace(':', '.');
+
+      if (!id) {
+        shifts.push({ id: Date.now().toString(), date, code, location, start, end, overnight });
+      } else {
+        const idx = shifts.findIndex(s => s.id === id);
+        if (idx !== -1) shifts[idx] = { id, date, code, location, start, end, overnight };
+      }
+
+      saveToStorage(); renderCalendar(); updateStats(); renderShiftList(); closeModal('shift-modal');
+      showToast('Vuoro tallennettu', 'success');
+    }
+
+    function deleteCurrentShift() {
+      const id = document.getElementById('shift-id').value;
+      if (!id) return;
+      shifts = shifts.filter(s => s.id !== id);
+      saveToStorage(); renderCalendar(); updateStats(); renderShiftList(); closeModal('shift-modal');
+      showToast('Vuoro poistettu', 'info');
+    }
+
+    function clearAllData() {
+      if (confirm('Haluatko varmasti poistaa kaikki tallennetut työvuorot ja ajosarjat?')) {
+        shifts = []; ajosarjaTemplates = {}; saveToStorage(); renderAll();
+        closeModal('settings-modal'); showToast('Kaikki tiedot poistettu', 'info');
+      }
+    }
+
+    function openModal(id) { document.getElementById(id).classList.remove('hidden'); }
+    function closeModal(id) { document.getElementById(id).classList.add('hidden'); }
+
+    let toastTimer = null;
+    function showToast(message, type = 'info') {
+      const toast = document.getElementById('toast'), msg = document.getElementById('toast-msg'), icon = document.getElementById('toast-icon');
+      msg.innerText = message;
+      icon.className = type === 'success' ? 'fa-solid fa-circle-check text-emerald-400' : type === 'error' ? 'fa-solid fa-triangle-exclamation text-red-400' : 'fa-solid fa-circle-info text-teal-400';
+      toast.classList.remove('opacity-0', 'pointer-events-none');
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => { toast.classList.add('opacity-0', 'pointer-events-none'); }, 3000);
+    }
+  </script>
+</body>
+</html>
