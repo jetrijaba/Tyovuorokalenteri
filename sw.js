@@ -1,6 +1,6 @@
 // Service worker: tallentaa sovelluksen tiedostot, jotta se toimii ilman verkkoa.
 // Kun muutat jotain tiedostoa, kasvata VERSION-numeroa, niin puhelin hakee uudet tiedostot.
-const VERSION = 'v1';
+const VERSION = 'v2';
 const CACHE = 'tyovuorot-' + VERSION;
 const FILES = [
   './',

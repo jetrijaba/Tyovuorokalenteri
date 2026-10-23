@@ -120,9 +120,6 @@
           <i class="fa-solid fa-list text-teal-400"></i> Kuukauden vuorolistat
         </h2>
         <div class="flex gap-2">
-          <button onclick="clearCurrentMonthShifts()" class="text-[11px] font-medium text-red-400 hover:text-red-300 bg-red-950/30 border border-red-900/30 px-2 py-1 rounded-lg transition">
-            Tyhjennä kk
-          </button>
           <button onclick="openAddShiftModal()" class="text-[11px] font-semibold text-teal-300 bg-teal-950/40 border border-teal-800/40 px-2.5 py-1 rounded-lg transition hover:bg-teal-900/40">
             + Lisää
           </button>
@@ -146,7 +143,7 @@
       </div>
       <span class="text-[10px] font-medium">Lataa PDF</span>
     </button>
-    <button onclick="openModal('settings-modal')" class="flex flex-col items-center gap-1 text-slate-400 hover:text-slate-200 transition active:scale-95">
+    <button onclick="openSettings()" class="flex flex-col items-center gap-1 text-slate-400 hover:text-slate-200 transition active:scale-95">
       <i class="fa-solid fa-sliders text-lg"></i>
       <span class="text-[10px] font-medium">Asetukset</span>
     </button>
@@ -177,12 +174,17 @@
 
   <!-- SETTINGS MODAL -->
   <div id="settings-modal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 hidden flex items-end sm:items-center justify-center p-0 sm:p-4">
-    <div class="bg-slate-900 border border-slate-800 w-full max-w-md rounded-t-3xl sm:rounded-3xl p-5 space-y-4 max-h-[90vh] overflow-y-auto hide-scrollbar">
+    <div id="settings-panel" class="bg-slate-900 border border-slate-800 w-full max-w-md rounded-t-3xl sm:rounded-3xl p-5 space-y-4 max-h-[90vh] overflow-y-auto hide-scrollbar">
       <div class="flex justify-between items-center">
         <h3 class="text-base font-bold text-slate-100">Asetukset & Ajosarjat</h3>
-        <button onclick="closeModal('settings-modal')" class="text-slate-400 hover:text-slate-100 p-1">
-          <i class="fa-solid fa-xmark text-lg"></i>
-        </button>
+        <div class="flex items-center gap-1">
+          <button id="settings-expand-btn" onclick="toggleSettingsFullscreen()" class="text-slate-400 hover:text-slate-100 p-1.5" title="Koko näyttö">
+            <i id="settings-expand-icon" class="fa-solid fa-expand text-base"></i>
+          </button>
+          <button onclick="closeModal('settings-modal')" class="text-slate-400 hover:text-slate-100 p-1.5">
+            <i class="fa-solid fa-xmark text-lg"></i>
+          </button>
+        </div>
       </div>
 
       <div class="space-y-3">
@@ -194,9 +196,21 @@
           </button>
         </div>
 
-        <button onclick="clearAllData()" class="w-full bg-red-950/30 border border-red-900/40 hover:bg-red-900/40 text-red-400 text-xs font-semibold py-3 px-4 rounded-xl flex items-center justify-between mt-4">
-          <span><i class="fa-solid fa-trash mr-2"></i>Tyhjennä kaikki vuoro- ja ajosarjatiedot</span>
-        </button>
+        <!-- VARMUUSKOPIO -->
+        <div class="bg-indigo-950/30 border border-indigo-700/50 p-3 rounded-xl space-y-2">
+          <p class="text-xs font-bold text-indigo-300"><i class="fa-solid fa-floppy-disk mr-1.5"></i>Varmuuskopio</p>
+          <p class="text-[11px] text-slate-300 leading-snug">Tallenna kaikki vuorot ja ajosarjat tiedostoon. Voit palauttaa ne samasta tiedostosta, esimerkiksi uudessa puhelimessa tai jos sovelluksen tiedot katoavat.</p>
+          <p id="backup-status" class="text-[11px] text-slate-400"></p>
+          <div class="grid grid-cols-2 gap-2">
+            <button onclick="exportBackup()" class="bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs py-2.5 rounded-lg transition shadow-md shadow-indigo-600/30">
+              <i class="fa-solid fa-download mr-1.5"></i>Vie
+            </button>
+            <label class="bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-100 font-semibold text-xs py-2.5 rounded-lg transition text-center cursor-pointer">
+              <i class="fa-solid fa-upload mr-1.5"></i>Tuo
+              <input type="file" accept="application/json,.json" class="hidden" onchange="importBackup(event)">
+            </label>
+          </div>
+        </div>
       </div>
 
       <!-- SAVED TEMPLATES LIST WITH DELETE BUTTONS -->
@@ -205,6 +219,17 @@
         <div id="saved-templates-summary" class="text-[11px] text-slate-400 max-h-48 overflow-y-auto space-y-1.5">
           Ei tallennettuja ajosarjoja.
         </div>
+      </div>
+
+      <!-- VAARALLISET TOIMINNOT (tarkoituksella asetusten alareunassa) -->
+      <div class="border border-red-900/40 rounded-xl p-3 space-y-2 mt-3">
+        <p class="text-[11px] font-bold text-red-400 uppercase tracking-wider"><i class="fa-solid fa-triangle-exclamation mr-1.5"></i>Vaaralliset toiminnot</p>
+        <button onclick="clearCurrentMonthShifts()" class="w-full bg-red-950/30 border border-red-900/40 hover:bg-red-900/40 text-red-400 text-xs font-semibold py-3 px-4 rounded-xl text-left">
+          <i class="fa-solid fa-eraser mr-2"></i><span id="clear-month-label">Tyhjennä kuukauden vuorot</span>
+        </button>
+        <button onclick="clearAllData()" class="w-full bg-red-950/30 border border-red-900/40 hover:bg-red-900/40 text-red-400 text-xs font-semibold py-3 px-4 rounded-xl text-left">
+          <i class="fa-solid fa-trash mr-2"></i>Tyhjennä kaikki vuoro- ja ajosarjatiedot
+        </button>
       </div>
     </div>
   </div>
@@ -719,7 +744,8 @@
       renderAll();
       // Päivittää "tänään"-korostuksen, kun päivä vaihtuu (puhelin yöllä tai sovellus taustalla)
       setInterval(checkDayChange, 60000);
-      document.addEventListener('visibilitychange', () => { if (!document.hidden) checkDayChange(); });
+      setInterval(refreshOpenDetail, 20000);
+      document.addEventListener('visibilitychange', () => { if (!document.hidden) { checkDayChange(); refreshOpenDetail(); } });
     };
 
     function renderAll() {
@@ -881,9 +907,11 @@
         const cell = document.createElement('div');
         cell.className = `min-h-[64px] border rounded-xl p-1 flex flex-col justify-between cursor-pointer transition relative hover:border-teal-400/80 overflow-hidden ${bgStyle}`;
         cell.onclick = () => {
-          selectDate(dateStr);
+          // Työpäivä: avaa ajosarja (ei jää valituksi). Muu päivä: valinta päälle/pois.
           if (shift && shift.code && !isOffShift(shift)) {
             openDetailModal(shift.code, dateStr);
+          } else {
+            selectDate(dateStr);
           }
         };
 
@@ -924,6 +952,7 @@
     function changeMonth(delta) {
       // Aina kuun ensimmäisestä päivästä, ettei esim. 31. päivä ohita kuukautta
       currentDate = new Date(currentDate.getFullYear(), currentDate.getMonth() + delta, 1);
+      selectedDateStr = null;   // valinta ei jää edellisen kuukauden päivälle
       renderCalendar();
       updateStats();
       renderShiftList();
@@ -940,6 +969,12 @@
 
     function selectDate(dateStr) {
       selectedDateStr = selectedDateStr === dateStr ? null : dateStr;
+      renderCalendar();
+      renderShiftList();
+    }
+
+    function clearSelection() {
+      selectedDateStr = null;
       renderCalendar();
       renderShiftList();
     }
@@ -964,8 +999,20 @@
 
       monthShifts.sort((a, b) => a.date.localeCompare(b.date));
 
+      if (selectedDateStr) {
+        const sd = parseLocalDate(selectedDateStr);
+        const bar = document.createElement('button');
+        bar.className = 'w-full flex items-center justify-between gap-2 bg-indigo-950/50 border border-indigo-700/60 text-indigo-200 rounded-xl px-3 py-2 text-[11px] font-semibold active:scale-[0.99] transition';
+        bar.onclick = clearSelection;
+        bar.innerHTML = `<span>Näytetään vain ${WEEKDAYS_SHORT[sd.getDay()]} ${sd.getDate()}.${sd.getMonth() + 1}.</span><span class="flex items-center gap-1.5 text-indigo-100"><i class="fa-solid fa-xmark"></i> Näytä koko kuukausi</span>`;
+        container.appendChild(bar);
+      }
+
       if (monthShifts.length === 0) {
-        container.innerHTML = `<div class="text-center py-8 text-slate-500 text-xs border border-dashed border-slate-800 rounded-2xl">Ei työvuoroja tässä valinnassa.</div>`;
+        const empty = document.createElement('div');
+        empty.className = 'text-center py-8 text-slate-500 text-xs border border-dashed border-slate-800 rounded-2xl';
+        empty.innerText = 'Ei työvuoroja tässä valinnassa.';
+        container.appendChild(empty);
         return;
       }
 
@@ -1029,10 +1076,39 @@
     function toggleLayovers(on) {
       showLayovers = !!on;
       try { localStorage.setItem('app_show_layovers', JSON.stringify(showLayovers)); } catch (e) {}
-      if (currentDetail) openDetailModal(currentDetail.code, currentDetail.dateStr, true);
+      if (currentDetail) openDetailModal(currentDetail.code, currentDetail.dateStr, true, true);
     }
 
-    function openDetailModal(code, dateStr, keepOpen) {
+    // Vaiheiden ajat minuutteina vuoropäivän keskiyöstä (yön yli menevät vuorot jatkuvat yli 1440)
+    function stepTimeline(steps) {
+      let base = 0, prev = -1;
+      return steps.map(st => {
+        let a = clockToMin(st.start) + base;
+        if (a < prev) { base += 1440; a += 1440; }
+        let b = clockToMin(st.end || st.start) + base;
+        if (b < a) { base += 1440; b += 1440; }
+        prev = b;
+        return { s: a, e: b };
+      });
+    }
+
+    // Mikä vaihe on meneillään juuri nyt: { cur } = meneillään oleva, { next } = seuraava (jos ollaan vaiheiden välissä).
+    // Palauttaa tyhjän tuloksen, ellei vuoro ole parhaillaan käynnissä, joten vain meneillään oleva päivä korostuu.
+    function currentStepState(steps, dateStr) {
+      const out = { cur: null, next: null };
+      if (!steps || !steps.length) return out;
+      const [y, m, d] = dateStr.split('-').map(Number);
+      const n = new Date();
+      const dayDiff = Math.round((Date.UTC(n.getFullYear(), n.getMonth(), n.getDate()) - Date.UTC(y, m - 1, d)) / 86400000);
+      const nowMin = dayDiff * 1440 + n.getHours() * 60 + n.getMinutes() + n.getSeconds() / 60;
+      const tl = stepTimeline(steps);
+      if (isNaN(tl[0].s) || nowMin < tl[0].s || nowMin >= tl[tl.length - 1].e) return out;
+      const idx = tl.findIndex(t => nowMin >= t.s && nowMin < t.e);
+      if (idx >= 0) out.cur = idx; else out.next = tl.findIndex(t => t.s > nowMin);
+      return out;
+    }
+
+    function openDetailModal(code, dateStr, keepOpen, refresh) {
       currentDetail = { code, dateStr };
       const group = getWeekdayGroup(dateStr);
       const codeUp = code.toUpperCase();
@@ -1046,6 +1122,7 @@
       document.getElementById('toggle-layovers').checked = showLayovers;
 
       const contentContainer = document.getElementById('detail-modal-content');
+      const prevScroll = refresh ? contentContainer.scrollTop : 0;
       contentContainer.innerHTML = '';
       document.getElementById('detail-toggle-row').classList.toggle('hidden', !templ);
 
@@ -1082,8 +1159,25 @@
           html += `<div class="bg-slate-800/50 p-3 rounded-xl border border-slate-800 text-slate-300 text-center">Ei tarkempia välivaiheita.</div>`;
         } else {
           let prevKierto = '';
+
+          // Meneillään oleva vaihe. Jos nyt ollaan piilotetussa kääntöajassa tai vaiheiden välissä,
+          // korostetaan seuraava näkyvä vaihe ("seuraavaksi").
+          const isVisibleStep = (st) => stepKind(st.type) !== 'layover' || showLayovers;
+          const state = currentStepState(steps, dateStr);
+          let curIdx = state.cur, nextIdx = state.next;
+          if (curIdx != null && !isVisibleStep(steps[curIdx])) { nextIdx = curIdx + 1; curIdx = null; }
+          if (curIdx == null && nextIdx != null) {
+            while (nextIdx < steps.length && !isVisibleStep(steps[nextIdx])) nextIdx++;
+            if (nextIdx >= steps.length) nextIdx = null;
+          }
+
           steps.forEach((step, i) => {
             const kind = stepKind(step.type);
+            const isNow = curIdx === i, isNext = nextIdx === i;
+            const nowAttr = isNow ? 'data-now="now"' : isNext ? 'data-now="next"' : '';
+            const nowChip = isNow
+              ? '<span class="text-[9px] font-extrabold text-slate-950 bg-teal-400 px-1.5 py-0.5 rounded">NYT</span>'
+              : isNext ? '<span class="text-[9px] font-extrabold text-teal-300 border border-teal-500/60 px-1.5 py-0.5 rounded">SEURAAVAKSI</span>' : '';
 
             // Odotus askelten välissä (loppuaika ≠ seuraavan alkuaika)
             if (showLayovers && i > 0) {
@@ -1097,7 +1191,7 @@
 
             if (kind === 'layover') {
               if (!showLayovers) return;
-              html += `<div class="text-[10px] text-slate-500 px-3 py-1 flex justify-between"><span>${esc(step.type)}${step.from ? ' · ' + esc(step.from) : ''}</span><span>${step.start} – ${step.end}</span></div>`;
+              html += `<div ${nowAttr} class="text-[10px] ${isNow ? 'text-teal-300 font-bold' : 'text-slate-500'} px-3 py-1 flex justify-between"><span>${isNow ? 'NYT: ' : ''}${esc(step.type)}${step.from ? ' · ' + esc(step.from) : ''}</span><span>${step.start} – ${step.end}</span></div>`;
               return;
             }
 
@@ -1117,10 +1211,12 @@
               ? `<span class="text-[10px] font-bold ${changed ? 'text-amber-200 bg-amber-950/60 border-amber-700/60' : 'text-indigo-200 bg-indigo-950/60 border-indigo-800/50'} border px-1.5 py-0.5 rounded">Kierto ${esc(step.kierto)}${changed ? ' (vaihtuu)' : ''}</span>` : '';
             if (step.kierto) prevKierto = step.kierto;
 
+            const rowCls = isNow ? 'bg-teal-950/50 border-teal-400 ring-1 ring-teal-400/60'
+              : isNext ? 'bg-slate-800/60 border-teal-500/60 border-dashed' : 'bg-slate-800/60 border-slate-800';
             html += `
-              <div class="bg-slate-800/60 p-2.5 rounded-xl border border-slate-800 flex justify-between items-center gap-2">
+              <div ${nowAttr} class="${rowCls} p-2.5 rounded-xl border flex justify-between items-center gap-2">
                 <div class="min-w-0">
-                  <span class="text-[10px] font-bold uppercase tracking-wider ${KIND_COLOR[kind]} block">${esc(label)}</span>
+                  <div class="flex items-center gap-1.5"><span class="text-[10px] font-bold uppercase tracking-wider ${KIND_COLOR[kind]}">${esc(label)}</span>${nowChip}</div>
                   ${route ? `<span class="text-slate-200 font-semibold text-xs block">${route}</span>` : ''}
                   ${(lineChip || kiertoChip) ? `<div class="flex flex-wrap gap-1 mt-1">${lineChip}${kiertoChip}</div>` : ''}
                 </div>
@@ -1141,6 +1237,24 @@
         contentContainer.innerHTML = html;
       }
       if (!keepOpen) openModal('detail-modal');
+      if (refresh) {
+        contentContainer.scrollTop = prevScroll;
+      } else {
+        // Avattaessa vieritetään meneillään oleva (tai seuraava) vaihe näkyviin
+        const nowEl = contentContainer.querySelector('[data-now]');
+        if (nowEl) requestAnimationFrame(() => {
+          const r = nowEl.getBoundingClientRect(), c = contentContainer.getBoundingClientRect();
+          contentContainer.scrollTop += (r.top - c.top) - (c.height - r.height) / 2;
+        });
+      }
+    }
+
+    // Pitää korostuksen ajan tasalla, kun ajosarja on auki
+    function refreshOpenDetail() {
+      const el = document.getElementById('detail-modal');
+      if (currentDetail && el && !el.classList.contains('hidden')) {
+        openDetailModal(currentDetail.code, currentDetail.dateStr, true, true);
+      }
     }
 
     // ---------- Tilastot ----------
@@ -1177,11 +1291,16 @@
 
     function clearCurrentMonthShifts() {
       const year = currentDate.getFullYear(), month = currentDate.getMonth() + 1;
+      const count = shifts.filter(s => { const [y, m] = s.date.split('-').map(Number); return y === year && m === month; }).length;
+      if (!count) { showToast('Tässä kuussa ei ole vuoroja', 'info'); return; }
+      if (!confirm(`Poistetaanko ${FinnishMonths[month - 1]} ${year}: ${count} vuoroa? Ajosarjat säilyvät.`)) return;
       shifts = shifts.filter(s => {
         const [sYear, sMonth] = s.date.split('-').map(Number);
         return !(sYear === year && sMonth === month);
       });
+      selectedDateStr = null;
       saveToStorage(); renderCalendar(); updateStats(); renderShiftList();
+      closeModal('settings-modal');
       showToast('Kuukauden vuorot tyhjennetty', 'info');
     }
 
@@ -1447,6 +1566,136 @@
         shifts = []; ajosarjaTemplates = {}; saveToStorage(); renderAll();
         closeModal('settings-modal'); showToast('Kaikki tiedot poistettu', 'info');
       }
+    }
+
+    // ---------- Asetukset ----------
+    let settingsFull = loadJSON('app_settings_fullscreen', false);
+
+    function applySettingsFullscreen() {
+      const f = !!settingsFull;
+      const panel = document.getElementById('settings-panel');
+      const set = (cls, on) => cls.split(' ').forEach(c => panel.classList.toggle(c, on));
+      set('h-[100dvh] max-h-[100dvh] rounded-none pt-8', f);
+      set('max-h-[90vh] rounded-t-3xl sm:rounded-3xl max-w-md', !f);
+      const list = document.getElementById('saved-templates-summary');
+      list.classList.toggle('max-h-48', !f);
+      list.classList.toggle('max-h-[60vh]', f);
+      document.getElementById('settings-expand-icon').className = `fa-solid ${f ? 'fa-compress' : 'fa-expand'} text-base`;
+      document.getElementById('settings-expand-btn').title = f ? 'Pienennä' : 'Koko näyttö';
+    }
+
+    function toggleSettingsFullscreen() {
+      settingsFull = !settingsFull;
+      try { localStorage.setItem('app_settings_fullscreen', JSON.stringify(settingsFull)); } catch (e) {}
+      applySettingsFullscreen();
+    }
+
+    function openSettings() {
+      updateSavedTemplatesSummary();
+      updateBackupStatus();
+      document.getElementById('clear-month-label').innerText = `Tyhjennä ${FinnishMonths[currentDate.getMonth()]} ${currentDate.getFullYear()} vuorot`;
+      applySettingsFullscreen();
+      openModal('settings-modal');
+    }
+
+    // ---------- Varmuuskopio ----------
+    function getLastBackup() {
+      try { return localStorage.getItem('app_last_backup'); } catch (e) { return null; }
+    }
+
+    function updateBackupStatus() {
+      const el = document.getElementById('backup-status');
+      const hasData = shifts.length > 0 || Object.keys(ajosarjaTemplates).length > 0;
+      const last = getLastBackup();
+      const lastDate = last ? new Date(last) : null;
+      let text, warn = false;
+      if (lastDate && !isNaN(lastDate)) {
+        text = `Viimeisin varmuuskopio: ${lastDate.getDate()}.${lastDate.getMonth() + 1}.${lastDate.getFullYear()} klo ${p2(lastDate.getHours())}.${p2(lastDate.getMinutes())}`;
+        warn = hasData && (Date.now() - lastDate.getTime()) > 30 * 86400000;
+        if (warn) text += ' (yli 30 päivää sitten)';
+      } else {
+        text = hasData ? 'Varmuuskopiota ei ole vielä tehty.' : 'Ei vielä tallennettuja tietoja.';
+        warn = hasData;
+      }
+      el.innerText = text;
+      el.className = `text-[11px] ${warn ? 'text-yellow-300' : 'text-slate-400'}`;
+    }
+
+    function exportBackup() {
+      const data = {
+        app: 'tyovuorokalenteri',
+        version: 1,
+        exportedAt: new Date().toISOString(),
+        shifts,
+        templates: ajosarjaTemplates,
+        settings: { showLayovers }
+      };
+      const blob = new Blob([JSON.stringify(data)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `tyovuorot-varmuuskopio-${todayStr()}.json`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 10000);
+      try { localStorage.setItem('app_last_backup', new Date().toISOString()); } catch (e) {}
+      updateBackupStatus();
+      showToast('Varmuuskopio tallennettu tiedostoon', 'success');
+    }
+
+    function countVariants(tpl) {
+      let n = 0;
+      Object.values(tpl).forEach(g => Object.values(g).forEach(list => { n += list.length; }));
+      return n;
+    }
+
+    async function importBackup(event) {
+      const file = event.target.files && event.target.files[0];
+      event.target.value = '';
+      if (!file) return;
+
+      let data;
+      try { data = JSON.parse(await file.text()); }
+      catch (e) { showToast('Tiedostoa ei voitu lukea', 'error'); return; }
+
+      if (!data || data.app !== 'tyovuorokalenteri' || !Array.isArray(data.shifts) || !data.templates || typeof data.templates !== 'object') {
+        showToast('Tiedosto ei ole tämän sovelluksen varmuuskopio', 'error');
+        return;
+      }
+
+      // Puhdistetaan tiedot: vain odotetun muotoiset kentät
+      const newShifts = data.shifts
+        .filter(s => s && typeof s.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(s.date) && typeof s.code === 'string' && s.code)
+        .map((s, i) => ({
+          id: String(s.id || (Date.now() + '-' + i)),
+          date: s.date, code: String(s.code), location: String(s.location || ''),
+          start: normClock(s.start), end: normClock(s.end), overnight: !!s.overnight
+        }));
+      const newTpl = normalizeTemplates(data.templates);
+      Object.values(newTpl).forEach(g => Object.values(g).forEach(list => list.forEach(v => {
+        v.start = normClock(v.start); v.end = normClock(v.end);
+        (v.steps || []).forEach(st => {
+          st.start = normClock(st.start); st.end = normClock(st.end);
+          (st.waits || []).forEach(w => { w.dep = normClock(w.dep); });
+        });
+      })));
+
+      const when = data.exportedAt ? new Date(data.exportedAt) : null;
+      const whenText = when && !isNaN(when) ? ` (tehty ${when.getDate()}.${when.getMonth() + 1}.${when.getFullYear()})` : '';
+      if (!confirm(`Palautetaan ${newShifts.length} vuoroa ja ${countVariants(newTpl)} ajosarjaa${whenText}.\n\nNykyiset vuorot ja ajosarjat korvataan. Jatketaanko?`)) return;
+
+      shifts = newShifts;
+      ajosarjaTemplates = newTpl;
+      if (data.settings && typeof data.settings.showLayovers === 'boolean') {
+        showLayovers = data.settings.showLayovers;
+        try { localStorage.setItem('app_show_layovers', JSON.stringify(showLayovers)); } catch (e) {}
+      }
+      selectedDateStr = null;
+      saveToStorage();
+      renderAll();
+      closeModal('settings-modal');
+      showToast(`Palautettu: ${newShifts.length} vuoroa, ${countVariants(newTpl)} ajosarjaa`, 'success');
     }
 
     function openModal(id) { document.getElementById(id).classList.remove('hidden'); }
