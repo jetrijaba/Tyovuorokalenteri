@@ -196,6 +196,27 @@
           </button>
         </div>
 
+        <!-- ILMOITUKSET -->
+        <div class="bg-amber-950/20 border border-amber-700/40 p-3 rounded-xl space-y-2">
+          <p class="text-xs font-bold text-amber-300"><i class="fa-solid fa-bell mr-1.5"></i>Taukoilmoitukset</p>
+          <label class="flex items-center justify-between gap-3 text-[12px] text-slate-200">
+            <span>Ilmoitus ennen taukoa</span>
+            <input type="checkbox" id="notify-toggle" onchange="setNotify(this.checked)" class="w-5 h-5 rounded bg-slate-800 border-slate-700 text-amber-500 focus:ring-0">
+          </label>
+          <label class="flex items-center justify-between gap-3 text-[12px] text-slate-200">
+            <span>Ilmoitus tulee</span>
+            <select id="notify-lead" onchange="setNotifyLead(this.value)" class="bg-slate-800 border border-slate-700 rounded-lg text-xs text-slate-100 px-2 py-1.5">
+              <option value="2">2 min ennen</option>
+              <option value="5">5 min ennen</option>
+              <option value="10">10 min ennen</option>
+              <option value="15">15 min ennen</option>
+            </select>
+          </label>
+          <p id="notify-status" class="text-[11px] text-slate-400 leading-snug"></p>
+          <button onclick="testNotification()" class="w-full bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-100 font-semibold text-xs py-2 rounded-lg transition">Lähetä testi-ilmoitus</button>
+          <p class="text-[10px] text-slate-500 leading-snug">Ilmoitus tulee, kun sovellus on auki tai on ollut äskettäin käytössä taustalla. Jos puhelin sulkee sovelluksen kokonaan, ilmoitus ei ehdi tulla.</p>
+        </div>
+
         <!-- VARMUUSKOPIO -->
         <div class="bg-indigo-950/30 border border-indigo-700/50 p-3 rounded-xl space-y-2">
           <p class="text-xs font-bold text-indigo-300"><i class="fa-solid fa-floppy-disk mr-1.5"></i>Varmuuskopio</p>
@@ -228,7 +249,7 @@
           <i class="fa-solid fa-eraser mr-2"></i><span id="clear-month-label">Tyhjennä kuukauden vuorot</span>
         </button>
         <button onclick="clearAllData()" class="w-full bg-red-950/30 border border-red-900/40 hover:bg-red-900/40 text-red-400 text-xs font-semibold py-3 px-4 rounded-xl text-left">
-          <i class="fa-solid fa-trash mr-2"></i>Tyhjennä kaikki vuoro- ja ajosarjatiedot
+          <i class="fa-solid fa-trash mr-2"></i>Tyhjennä kaikki vuoro-, ajosarja- ja merkintätiedot
         </button>
       </div>
     </div>
@@ -272,9 +293,14 @@
           </h3>
           <p id="detail-modal-subtitle" class="text-xs text-slate-400">Päivän tiedot</p>
         </div>
-        <button onclick="closeModal('detail-modal')" class="text-slate-400 hover:text-slate-100 p-1">
-          <i class="fa-solid fa-xmark text-lg"></i>
-        </button>
+        <div class="flex items-center gap-1.5">
+          <button id="detail-log-btn" onclick="openLogSummary()" class="hidden flex items-center gap-1 bg-amber-500/15 border border-amber-500/50 text-amber-300 font-bold text-[11px] px-2.5 py-1.5 rounded-lg" title="Päivän merkinnät">
+            <i class="fa-solid fa-plus text-[10px]"></i> Merkinnät
+          </button>
+          <button onclick="closeModal('detail-modal')" class="text-slate-400 hover:text-slate-100 p-1">
+            <i class="fa-solid fa-xmark text-lg"></i>
+          </button>
+        </div>
       </div>
 
       <label id="detail-toggle-row" class="flex items-center gap-2 text-[11px] text-slate-400 shrink-0">
@@ -288,6 +314,64 @@
         <button onclick="closeModal('detail-modal')" class="w-full bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold py-2.5 rounded-xl transition">
           Sulje
         </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAUKO / TYÖPÄIVÄN PÄÄTÖS -MERKINTÄ -->
+  <div id="log-modal" class="fixed inset-0 bg-slate-950/85 backdrop-blur-sm z-[60] hidden flex items-end sm:items-center justify-center p-0 sm:p-4">
+    <div class="bg-slate-900 border border-slate-800 w-full max-w-md rounded-t-3xl sm:rounded-3xl p-5 space-y-4">
+      <div class="flex justify-between items-center">
+        <div>
+          <h3 id="log-title" class="text-base font-bold text-amber-300">Tauko</h3>
+          <p id="log-subtitle" class="text-xs text-slate-400"></p>
+        </div>
+        <button onclick="closeModal('log-modal')" class="text-slate-400 hover:text-slate-100 p-1">
+          <i class="fa-solid fa-xmark text-lg"></i>
+        </button>
+      </div>
+
+      <div class="bg-slate-800/80 border border-slate-700/80 rounded-2xl p-4 space-y-3">
+        <div id="log-range" class="flex items-center justify-center gap-2 text-2xl font-extrabold text-slate-100"></div>
+        <div class="flex items-center justify-center gap-2">
+          <button onclick="adjustLog(-5)" class="w-12 h-11 rounded-xl bg-slate-900 border border-slate-700 text-slate-200 font-bold text-sm active:bg-slate-700">−5</button>
+          <button onclick="adjustLog(-1)" class="w-16 h-11 rounded-xl bg-slate-900 border border-slate-600 text-slate-100 font-extrabold text-lg active:bg-slate-700">−1</button>
+          <button onclick="adjustLog(1)" class="w-16 h-11 rounded-xl bg-slate-900 border border-slate-600 text-slate-100 font-extrabold text-lg active:bg-slate-700">+1</button>
+          <button onclick="adjustLog(5)" class="w-12 h-11 rounded-xl bg-slate-900 border border-slate-700 text-slate-200 font-bold text-sm active:bg-slate-700">+5</button>
+        </div>
+        <p id="log-info" class="text-[11px] text-slate-400 text-center leading-snug"></p>
+      </div>
+
+      <div>
+        <label for="log-reason" class="text-[11px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Syy</label>
+        <input id="log-reason" type="text" maxlength="120" autocomplete="off" enterkeyhint="done"
+          onfocus="logReasonFocus(this)" onblur="logReasonBlur(this)" oninput="this.dataset.def='0'"
+          class="w-full bg-slate-950 border border-slate-700 focus:border-amber-400 outline-none rounded-xl px-3 py-3 text-sm text-slate-100">
+      </div>
+
+      <div class="flex gap-2">
+        <button id="log-delete-btn" onclick="deleteLogEntry()" class="hidden w-12 bg-red-950/30 border border-red-900/40 text-red-400 rounded-xl" title="Poista merkintä">
+          <i class="fa-solid fa-trash text-xs"></i>
+        </button>
+        <button onclick="closeModal('log-modal')" class="w-1/3 bg-slate-800 hover:bg-slate-700 text-slate-300 font-medium text-xs py-3 rounded-xl transition">Peruuta</button>
+        <button onclick="saveLogEntry()" class="flex-1 bg-amber-500 hover:bg-amber-400 text-slate-950 font-extrabold text-xs py-3 rounded-xl transition">Tallenna</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- PÄIVÄN MERKINNÄT (YHTEENVETO) -->
+  <div id="log-summary-modal" class="fixed inset-0 bg-slate-950/85 backdrop-blur-sm z-[60] hidden flex items-end sm:items-center justify-center p-0 sm:p-4">
+    <div class="bg-slate-900 border border-slate-800 w-full max-w-md rounded-t-3xl sm:rounded-3xl p-5 space-y-4 max-h-[90vh] overflow-y-auto">
+      <div class="flex justify-between items-center">
+        <h3 class="text-base font-bold text-amber-300"><i class="fa-solid fa-clipboard-list mr-1.5"></i>Päivän merkinnät</h3>
+        <button onclick="closeModal('log-summary-modal')" class="text-slate-400 hover:text-slate-100 p-1">
+          <i class="fa-solid fa-xmark text-lg"></i>
+        </button>
+      </div>
+      <div id="log-summary-body" class="space-y-3"></div>
+      <div class="flex gap-2">
+        <button onclick="copyLogSummary()" class="flex-1 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-100 font-semibold text-xs py-3 rounded-xl transition"><i class="fa-solid fa-copy mr-1.5"></i>Kopioi teksti</button>
+        <button onclick="closeModal('log-summary-modal')" class="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold text-xs py-3 rounded-xl transition">Sulje</button>
       </div>
     </div>
   </div>
@@ -345,7 +429,7 @@
   </div>
 
   <!-- TOAST -->
-  <div id="toast" class="fixed top-4 left-1/2 -translate-x-1/2 z-50 bg-slate-800 border border-slate-700 text-slate-100 px-4 py-2.5 rounded-2xl shadow-2xl text-xs font-medium opacity-0 transition-all duration-300 pointer-events-none flex items-center gap-2">
+  <div id="toast" class="fixed top-4 left-1/2 -translate-x-1/2 z-[70] bg-slate-800 border border-slate-700 text-slate-100 px-4 py-2.5 rounded-2xl shadow-2xl text-xs font-medium opacity-0 transition-all duration-300 pointer-events-none flex items-center gap-2">
     <i id="toast-icon" class="fa-solid fa-circle-info text-teal-400"></i>
     <span id="toast-msg">Viesti</span>
   </div>
@@ -734,6 +818,11 @@
     let selectedDateStr = null;
     let showLayovers = loadJSON('app_show_layovers', false);
     let currentDetail = null;
+    let dayLogs = normalizeLogs(loadJSON('app_day_logs', {}));
+    let notifyOn = loadJSON('app_notify', true);
+    let notifyLead = Number(loadJSON('app_notify_lead', 5)) || 5;
+    let notified = loadJSON('app_notified', {});
+    let logCtx = null;
     let lastRenderedToday = null;
 
     if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
@@ -745,7 +834,11 @@
       // Päivittää "tänään"-korostuksen, kun päivä vaihtuu (puhelin yöllä tai sovellus taustalla)
       setInterval(checkDayChange, 60000);
       setInterval(refreshOpenDetail, 20000);
-      document.addEventListener('visibilitychange', () => { if (!document.hidden) { checkDayChange(); refreshOpenDetail(); } });
+      document.addEventListener('visibilitychange', () => { if (!document.hidden) { checkDayChange(); refreshOpenDetail(); checkBreakNotifications(); } });
+      setInterval(checkBreakNotifications, 15000);
+      checkBreakNotifications();
+      // Ilmoituslupa pyydetään ensimmäisen napautuksen yhteydessä (selain vaatii käyttäjän toiminnon)
+      document.addEventListener('click', () => { if (notifyOn) requestNotifyPermission(); }, { once: true });
     };
 
     function renderAll() {
@@ -1067,11 +1160,12 @@
       const t = (type || '').toLowerCase();
       if (t.startsWith('linja')) return 'drive';
       if (t.startsWith('tauko')) return 'break';
+      if (t.startsWith('sidonn')) return 'bound';
       if (t.startsWith('kääntö') || t.startsWith('odotus')) return 'layover';
       if (t.startsWith('aloitus') || t.startsWith('lopetus')) return 'edge';
       return 'transfer';
     }
-    const KIND_COLOR = { drive: 'text-teal-400', break: 'text-amber-400', edge: 'text-emerald-400', transfer: 'text-indigo-300', layover: 'text-slate-500' };
+    const KIND_COLOR = { drive: 'text-teal-400', break: 'text-amber-400', bound: 'text-amber-400', edge: 'text-emerald-400', transfer: 'text-indigo-300', layover: 'text-slate-500' };
 
     function toggleLayovers(on) {
       showLayovers = !!on;
@@ -1120,6 +1214,7 @@
       document.getElementById('detail-modal-title').innerHTML = `<i class="fa-solid fa-clock-rotate-left"></i> Ajosarja ${esc(codeUp)}`;
       document.getElementById('detail-modal-subtitle').innerText = `${wd} ${fiDate(dateStr)} (${GROUP_LABELS[group]})`;
       document.getElementById('toggle-layovers').checked = showLayovers;
+      document.getElementById('detail-log-btn').classList.toggle('hidden', !dayLogs[dateStr]);
 
       const contentContainer = document.getElementById('detail-modal-content');
       const prevScroll = refresh ? contentContainer.scrollTop : 0;
@@ -1171,8 +1266,16 @@
             if (nextIdx >= steps.length) nextIdx = null;
           }
 
+          const tlAll = stepTimeline(steps);
+          const dayLog = dayLogs[dateStr] || {};
           steps.forEach((step, i) => {
-            const kind = stepKind(step.type);
+            let kind = stepKind(step.type);
+            // Sidonnaisuusaika heti tauon jälkeen näytetään taukona (väri), mutta se ei ole kirjattava tauko
+            if (kind === 'bound') {
+              let j = i - 1;
+              while (j >= 0 && stepKind(steps[j].type) === 'layover') j--;
+              if (!(j >= 0 && stepKind(steps[j].type) === 'break')) kind = 'transfer';
+            }
             const isNow = curIdx === i, isNext = nextIdx === i;
             const nowAttr = isNow ? 'data-now="now"' : isNext ? 'data-now="next"' : '';
             const nowChip = isNow
@@ -1197,11 +1300,19 @@
 
             const timeStr = step.end && step.end !== step.start ? `${step.start} – ${step.end}` : step.start;
             let dur = '';
-            if (kind === 'break' && step.end) {
+            if ((kind === 'break' || kind === 'bound') && step.end) {
               let d = clockToMin(step.end) - clockToMin(step.start);
               if (d < 0) d += 1440;
               dur = `<span class="text-[10px] text-amber-300/80 block text-right">${d} min</span>`;
             }
+            // Käynnissä olevaa taukoa (tai jo merkittyä taukoa) voi napauttaa: tauon alun kirjaus
+            const savedBrk = kind === 'break' && dayLog.brk && dayLog.brk.idx === i ? dayLog.brk : null;
+            const breakTap = kind === 'break' && (isNow || savedBrk);
+            const breakHint = breakTap
+              ? (savedBrk
+                ? `<span class="text-[10px] font-bold text-amber-300 block mt-1"><i class="fa-solid fa-check mr-1"></i>Alkoi ${fmtClock(savedBrk.s)} · ${esc(savedBrk.reason)}</span>`
+                : `<span class="text-[10px] font-bold text-amber-300 block mt-1"><i class="fa-solid fa-hand-pointer mr-1"></i>Napauta: merkitse tauon alku</span>`)
+              : '';
             const label = step.type + (step.note ? ` (${step.note})` : '');
             const route = step.from ? (step.to && step.to !== step.from ? `${esc(step.from)} ➔ ${esc(step.to)}` : esc(step.from)) : '';
             const lineChip = step.lineNo && kind === 'drive'
@@ -1211,14 +1322,16 @@
               ? `<span class="text-[10px] font-bold ${changed ? 'text-amber-200 bg-amber-950/60 border-amber-700/60' : 'text-indigo-200 bg-indigo-950/60 border-indigo-800/50'} border px-1.5 py-0.5 rounded">Kierto ${esc(step.kierto)}${changed ? ' (vaihtuu)' : ''}</span>` : '';
             if (step.kierto) prevKierto = step.kierto;
 
-            const rowCls = isNow ? 'bg-teal-950/50 border-teal-400 ring-1 ring-teal-400/60'
-              : isNext ? 'bg-slate-800/60 border-teal-500/60 border-dashed' : 'bg-slate-800/60 border-slate-800';
+            const rowCls = (isNow ? 'bg-teal-950/50 border-teal-400 ring-1 ring-teal-400/60'
+              : isNext ? 'bg-slate-800/60 border-teal-500/60 border-dashed' : 'bg-slate-800/60 border-slate-800')
+              + (breakTap ? ' cursor-pointer active:bg-amber-950/40' : '');
             html += `
-              <div ${nowAttr} class="${rowCls} p-2.5 rounded-xl border flex justify-between items-center gap-2">
+              <div ${nowAttr} ${breakTap ? `onclick="openBreakLog(${i})"` : ''} class="${rowCls} p-2.5 rounded-xl border flex justify-between items-center gap-2">
                 <div class="min-w-0">
                   <div class="flex items-center gap-1.5"><span class="text-[10px] font-bold uppercase tracking-wider ${KIND_COLOR[kind]}">${esc(label)}</span>${nowChip}</div>
                   ${route ? `<span class="text-slate-200 font-semibold text-xs block">${route}</span>` : ''}
                   ${(lineChip || kiertoChip) ? `<div class="flex flex-wrap gap-1 mt-1">${lineChip}${kiertoChip}</div>` : ''}
+                  ${breakHint}
                 </div>
                 <div class="ml-2 shrink-0">
                   <span class="text-xs font-extrabold text-slate-200 bg-slate-900 px-2.5 py-1 rounded-lg border border-slate-700/80 whitespace-nowrap block">${timeStr}</span>
@@ -1233,6 +1346,7 @@
               });
             }
           });
+          html += endDayButtonHtml(dateStr, tlAll, dayLog.work);
         }
         contentContainer.innerHTML = html;
       }
@@ -1246,6 +1360,362 @@
           const r = nowEl.getBoundingClientRect(), c = contentContainer.getBoundingClientRect();
           contentContainer.scrollTop += (r.top - c.top) - (c.height - r.height) / 2;
         });
+      }
+    }
+
+    // ---------- Tauko- ja työpäivämerkinnät ----------
+    // dayLogs[pvm] = { code, brk:{idx,s,e,ps,reason}, work:{s,e,pe,reason} }; ajat minuutteina vuoropäivän keskiyöstä
+    const DEFAULT_REASON = 'Ruuhka';
+    const END_HIGHLIGHT_MIN = 120;   // lopetuspainike korostuu näin kauan vuoron päättymisen jälkeen
+    const END_ALLOWED_MIN = 720;     // ja on käytettävissä näin kauan
+
+    function normalizeLogs(raw) {
+      const out = {};
+      if (!raw || typeof raw !== 'object') return out;
+      const num = v => (typeof v === 'number' && isFinite(v) ? Math.round(v) : null);
+      const txt = v => String(v == null ? '' : v).slice(0, 120);
+      Object.keys(raw).forEach(d => {
+        const r = raw[d];
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(d) || !r || typeof r !== 'object') return;
+        const e = { code: txt(r.code) };
+        const b = r.brk, w = r.work;
+        if (b && num(b.s) != null && num(b.e) != null) e.brk = { idx: num(b.idx) == null ? -1 : num(b.idx), s: num(b.s), e: num(b.e), ps: num(b.ps) == null ? num(b.s) : num(b.ps), reason: txt(b.reason) };
+        if (w && num(w.s) != null && num(w.e) != null) e.work = { s: num(w.s), e: num(w.e), pe: num(w.pe) == null ? num(w.e) : num(w.pe), reason: txt(w.reason) };
+        if (e.brk || e.work) out[d] = e;
+      });
+      return out;
+    }
+
+    function saveLogs() {
+      try { localStorage.setItem('app_day_logs', JSON.stringify(dayLogs)); } catch (e) { console.warn('Merkintöjen tallennus epäonnistui', e); }
+    }
+
+    // Kellonaika muodossa 8.54 (minuutit vuoropäivän keskiyöstä)
+    function fmtClock(min) {
+      const m = ((Math.round(min) % 1440) + 1440) % 1440;
+      return `${Math.floor(m / 60)}.${p2(m % 60)}`;
+    }
+    function fmtDur(min) {
+      min = Math.round(Math.abs(min));
+      return min >= 60 ? `${Math.floor(min / 60)} h ${p2(min % 60)} min` : `${min} min`;
+    }
+
+    // Kellonaika minuutteina annetun vuoropäivän keskiyöstä (kokonaisia minuutteja)
+    function nowMinFor(dateStr) {
+      const [y, m, d] = dateStr.split('-').map(Number);
+      const n = new Date();
+      const dayDiff = Math.round((Date.UTC(n.getFullYear(), n.getMonth(), n.getDate()) - Date.UTC(y, m - 1, d)) / 86400000);
+      return dayDiff * 1440 + n.getHours() * 60 + n.getMinutes();
+    }
+
+    // Lopetuspainike ajosarjan lopussa
+    function endDayButtonHtml(dateStr, tl, saved) {
+      if (!tl || !tl.length || isNaN(tl[0].s)) return '';
+      const start = tl[0].s, end = tl[tl.length - 1].e, now = nowMinFor(dateStr);
+      const base = 'w-full mt-2 p-3 rounded-xl border flex items-center justify-between gap-2 text-left transition';
+      if (saved) {
+        return `<button onclick="openEndLog()" class="${base} bg-emerald-950/30 border-emerald-600/60">
+          <span><span class="text-[10px] font-extrabold uppercase tracking-wider text-emerald-300 block"><i class="fa-solid fa-check mr-1"></i>Työpäivä merkitty</span>
+          <span class="text-xs font-bold text-slate-100">${fmtClock(saved.s)} – ${fmtClock(saved.e)}</span>
+          <span class="text-[10px] text-slate-400 block">${esc(saved.reason)}</span></span>
+          <i class="fa-solid fa-pen text-[11px] text-slate-400"></i></button>`;
+      }
+      if (now >= end && now <= end + END_HIGHLIGHT_MIN) {
+        return `<button onclick="openEndLog()" class="${base} bg-amber-950/50 border-amber-400 ring-1 ring-amber-400/70">
+          <span><span class="text-[10px] font-extrabold uppercase tracking-wider text-amber-300 block"><i class="fa-solid fa-flag-checkered mr-1"></i>Päivä päättyi</span>
+          <span class="text-xs font-bold text-slate-100">Merkitse todellinen lopetusaika</span></span>
+          <i class="fa-solid fa-chevron-right text-[11px] text-amber-300"></i></button>`;
+      }
+      if (now >= start && now <= end + END_ALLOWED_MIN) {
+        return `<button onclick="openEndLog()" class="${base} bg-slate-800/60 border-slate-700">
+          <span><span class="text-[10px] font-extrabold uppercase tracking-wider text-slate-300 block"><i class="fa-solid fa-flag-checkered mr-1"></i>Päivä päättyi</span>
+          <span class="text-[11px] text-slate-400">Merkitse todellinen lopetusaika</span></span>
+          <i class="fa-solid fa-chevron-right text-[11px] text-slate-500"></i></button>`;
+      }
+      return `<div class="${base} bg-slate-900/60 border-slate-800 opacity-60">
+        <span><span class="text-[10px] font-extrabold uppercase tracking-wider text-slate-500 block"><i class="fa-solid fa-flag-checkered mr-1"></i>Päivä päättyi</span>
+        <span class="text-[11px] text-slate-500">Käytettävissä vuoron aikana ja sen jälkeen</span></span></div>`;
+    }
+
+    function dutyTimeline(dateStr) {
+      const shift = shifts.find(s => s.date === dateStr);
+      const templ = shift ? findTemplate(shift) : null;
+      if (!templ || !templ.steps || !templ.steps.length) return null;
+      return { steps: templ.steps, tl: stepTimeline(templ.steps) };
+    }
+
+    function openBreakLog(idx) {
+      if (!currentDetail) return;
+      const { dateStr, code } = currentDetail;
+      const d = dutyTimeline(dateStr);
+      if (!d || !d.steps[idx]) return;
+      const st = d.tl[idx];
+      const saved = (dayLogs[dateStr] || {}).brk;
+      const existing = saved && saved.idx === idx ? saved : null;
+      logCtx = {
+        kind: 'break', dateStr, code: code.toUpperCase(), idx,
+        min: existing ? existing.s : Math.min(nowMinFor(dateStr), st.e),
+        fixed: st.e, planned: st.s, lo: st.s - 240, hi: st.e,
+        existing: !!existing, reason: existing ? existing.reason : DEFAULT_REASON
+      };
+      showLogModal();
+    }
+
+    function openEndLog() {
+      if (!currentDetail) return;
+      const { dateStr, code } = currentDetail;
+      const d = dutyTimeline(dateStr);
+      if (!d) return;
+      const start = d.tl[0].s, end = d.tl[d.tl.length - 1].e;
+      const saved = (dayLogs[dateStr] || {}).work;
+      logCtx = {
+        kind: 'work', dateStr, code: code.toUpperCase(), idx: -1,
+        min: saved ? saved.e : Math.max(nowMinFor(dateStr), start),
+        fixed: start, planned: end, lo: start, hi: start + 1440,
+        existing: !!saved, reason: saved ? saved.reason : DEFAULT_REASON
+      };
+      showLogModal();
+    }
+
+    function showLogModal() {
+      const c = logCtx;
+      const isBreak = c.kind === 'break';
+      document.getElementById('log-title').innerText = isBreak ? 'Tauko alkoi' : 'Työpäivä päättyi';
+      document.getElementById('log-subtitle').innerText = `${fiDate(c.dateStr)} · ${c.code}`;
+      const inp = document.getElementById('log-reason');
+      inp.value = c.reason;
+      inp.dataset.def = c.reason === DEFAULT_REASON ? '1' : '0';
+      document.getElementById('log-delete-btn').classList.toggle('hidden', !c.existing);
+      updateLogDisplay();
+      openModal('log-modal');
+    }
+
+    function updateLogDisplay() {
+      const c = logCtx;
+      const adj = `<span class="bg-slate-950 border border-amber-400/70 text-amber-300 rounded-xl px-3 py-1.5">${fmtClock(c.min)}</span>`;
+      const fix = `<span class="text-slate-400">${fmtClock(c.fixed)}</span>`;
+      document.getElementById('log-range').innerHTML = c.kind === 'break'
+        ? `${adj}<span class="text-slate-500">–</span>${fix}`
+        : `${fix}<span class="text-slate-500">–</span>${adj}`;
+      let info;
+      if (c.kind === 'break') {
+        info = `Tauon pituus ${fmtDur(c.fixed - c.min)}. Päättyy ${fmtClock(c.fixed)} ajosarjan mukaan.`;
+      } else {
+        const diff = c.min - c.planned;
+        info = `Työpäivän pituus ${fmtDur(c.min - c.fixed)}. Ajosarjan mukaan ${fmtClock(c.fixed)}–${fmtClock(c.planned)}` +
+          (diff > 0 ? ` – venyi ${fmtDur(diff)}.` : diff < 0 ? ` – päättyi ${fmtDur(diff)} aiemmin.` : '.');
+      }
+      document.getElementById('log-info').innerText = info;
+    }
+
+    function adjustLog(delta) {
+      if (!logCtx) return;
+      logCtx.min = Math.max(logCtx.lo, Math.min(logCtx.hi, logCtx.min + delta));
+      updateLogDisplay();
+    }
+
+    // Oletussyy ("Ruuhka") katoaa heti, kun kenttää napautetaan; jos kenttä jää tyhjäksi, oletus palaa
+    function logReasonFocus(el) {
+      if (el.dataset.def === '1') { el.value = ''; el.dataset.def = '0'; el.dataset.cleared = '1'; }
+    }
+    function logReasonBlur(el) {
+      if (!el.value.trim()) { el.value = DEFAULT_REASON; el.dataset.def = '1'; }
+    }
+
+    function saveLogEntry() {
+      const c = logCtx;
+      if (!c) return;
+      const reason = (document.getElementById('log-reason').value.trim() || DEFAULT_REASON).slice(0, 120);
+      const day = dayLogs[c.dateStr] || (dayLogs[c.dateStr] = { code: c.code });
+      day.code = c.code;
+      if (c.kind === 'break') day.brk = { idx: c.idx, s: c.min, e: c.fixed, ps: c.planned, reason };
+      else day.work = { s: c.fixed, e: c.min, pe: c.planned, reason };
+      saveLogs();
+      closeModal('log-modal');
+      showToast(c.kind === 'break' ? 'Tauko tallennettu' : 'Työpäivä tallennettu', 'success');
+      logCtx = null;
+      refreshOpenDetail();
+    }
+
+    function deleteLogEntry() {
+      const c = logCtx;
+      if (!c || !confirm(c.kind === 'break' ? 'Poistetaanko tauon merkintä?' : 'Poistetaanko työpäivän merkintä?')) return;
+      removeLogPart(c.dateStr, c.kind === 'break' ? 'brk' : 'work');
+      closeModal('log-modal');
+      logCtx = null;
+      refreshOpenDetail();
+    }
+
+    function removeLogPart(dateStr, part) {
+      const day = dayLogs[dateStr];
+      if (!day) return;
+      delete day[part];
+      if (!day.brk && !day.work) delete dayLogs[dateStr];
+      saveLogs();
+    }
+
+    function logSummaryLines(dateStr) {
+      const day = dayLogs[dateStr];
+      if (!day) return null;
+      const [, m, d] = dateStr.split('-').map(Number);
+      const lines = { head: [`${d}.${m}`, day.code || ''], rows: [] };
+      if (day.brk) {
+        const b = day.brk, late = b.s - b.ps;
+        lines.rows.push({
+          part: 'brk', label: 'TAUKO', range: `${fmtClock(b.s)}-${fmtClock(b.e)}`, reason: b.reason,
+          note: `Ajosarjan mukaan ${fmtClock(b.ps)}-${fmtClock(b.e)} · ${late > 0 ? `alkoi ${fmtDur(late)} myöhässä` : late < 0 ? `alkoi ${fmtDur(late)} aiemmin` : 'alkoi aikataulussa'} · pituus ${fmtDur(b.e - b.s)}`
+        });
+      }
+      if (day.work) {
+        const w = day.work, over = w.e - w.pe;
+        lines.rows.push({
+          part: 'work', label: 'TYÖPÄIVÄ', range: `${fmtClock(w.s)}-${fmtClock(w.e)}`, reason: w.reason,
+          note: `Ajosarjan mukaan ${fmtClock(w.s)}-${fmtClock(w.pe)} · ${over > 0 ? `venyi ${fmtDur(over)}` : over < 0 ? `päättyi ${fmtDur(over)} aiemmin` : 'päättyi aikataulussa'} · pituus ${fmtDur(w.e - w.s)}`
+        });
+      }
+      return lines;
+    }
+
+    function openLogSummary() {
+      if (!currentDetail) return;
+      const dateStr = currentDetail.dateStr;
+      const sum = logSummaryLines(dateStr);
+      if (!sum) return;
+      let html = `<div class="bg-slate-800/80 border border-slate-700/80 rounded-2xl p-4">
+        <div class="text-2xl font-extrabold text-slate-100">${esc(sum.head[0])}</div>
+        <div class="text-lg font-extrabold text-teal-300">${esc(sum.head[1])}</div></div>`;
+      sum.rows.forEach(r => {
+        html += `<div class="bg-slate-800/60 border border-slate-700/70 rounded-2xl p-3 space-y-1">
+          <div class="flex items-start justify-between gap-2">
+            <div><span class="text-[11px] font-extrabold tracking-wider text-amber-300">${r.label}:</span>
+            <span class="text-base font-extrabold text-slate-100 ml-1">${r.range}</span></div>
+            <button onclick="deleteLogFromSummary('${r.part}')" class="text-slate-500 hover:text-red-400 p-1" title="Poista"><i class="fa-solid fa-trash text-[11px]"></i></button>
+          </div>
+          <div class="text-xs text-slate-200">Syy: <span class="font-semibold">${esc(r.reason)}</span></div>
+          <div class="text-[10px] text-slate-400 leading-snug">${esc(r.note)}</div></div>`;
+      });
+      document.getElementById('log-summary-body').innerHTML = html;
+      openModal('log-summary-modal');
+    }
+
+    function deleteLogFromSummary(part) {
+      if (!currentDetail || !confirm('Poistetaanko tämä merkintä?')) return;
+      removeLogPart(currentDetail.dateStr, part);
+      if (dayLogs[currentDetail.dateStr]) openLogSummary(); else closeModal('log-summary-modal');
+      refreshOpenDetail();
+    }
+
+    async function copyLogSummary() {
+      if (!currentDetail) return;
+      const sum = logSummaryLines(currentDetail.dateStr);
+      if (!sum) return;
+      const text = [sum.head[0], sum.head[1], ...sum.rows.map(r => `${r.label}: ${r.range} (${r.reason})`)].join('\n');
+      try {
+        await navigator.clipboard.writeText(text);
+        showToast('Teksti kopioitu', 'success');
+      } catch (e) {
+        const ta = document.createElement('textarea');
+        ta.value = text; document.body.appendChild(ta); ta.select();
+        try { document.execCommand('copy'); showToast('Teksti kopioitu', 'success'); } catch (e2) { showToast('Kopiointi ei onnistunut', 'error'); }
+        ta.remove();
+      }
+    }
+
+    // ---------- Ilmoitukset ----------
+    function notifySupported() { return typeof Notification !== 'undefined'; }
+
+    async function showAppNotification(title, body, tag) {
+      const opts = { body, tag, icon: 'icons/icon-192.png', badge: 'icons/icon-192.png', vibrate: [200, 100, 200], lang: 'fi', data: { url: './' } };
+      try {
+        if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
+          const reg = await navigator.serviceWorker.ready;
+          await reg.showNotification(title, opts);
+          return true;
+        }
+        new Notification(title, opts);
+        return true;
+      } catch (e) {
+        console.warn('Ilmoitus epäonnistui', e);
+        return false;
+      }
+    }
+
+    async function requestNotifyPermission() {
+      if (!notifySupported() || Notification.permission !== 'default') return Notification.permission;
+      try { return await Notification.requestPermission(); } catch (e) { return Notification.permission; }
+      finally { updateNotifyUi(); }
+    }
+
+    function updateNotifyUi() {
+      const tg = document.getElementById('notify-toggle');
+      if (!tg) return;
+      tg.checked = !!notifyOn;
+      document.getElementById('notify-lead').value = String(notifyLead);
+      const el = document.getElementById('notify-status');
+      let t, cls = 'text-slate-400';
+      if (!notifySupported()) { t = 'Tämä selain ei tue ilmoituksia.'; cls = 'text-yellow-300'; }
+      else if (Notification.permission === 'denied') { t = 'Ilmoitukset on estetty puhelimen asetuksissa. Salli ne sovelluksen/selaimen ilmoitusasetuksista.'; cls = 'text-yellow-300'; }
+      else if (Notification.permission === 'default') { t = notifyOn ? 'Lupaa ei ole vielä annettu. Se kysytään kun laitat ilmoitukset päälle.' : 'Ilmoitukset ovat pois päältä.'; }
+      else { t = notifyOn ? `Ilmoitukset ovat päällä (${notifyLead} min ennen taukoa).` : 'Ilmoitukset ovat pois päältä.'; }
+      el.innerText = t;
+      el.className = `text-[11px] leading-snug ${cls}`;
+    }
+
+    async function setNotify(on) {
+      notifyOn = !!on;
+      try { localStorage.setItem('app_notify', JSON.stringify(notifyOn)); } catch (e) {}
+      if (notifyOn) await requestNotifyPermission();
+      updateNotifyUi();
+      if (notifyOn) checkBreakNotifications();
+    }
+
+    function setNotifyLead(v) {
+      notifyLead = Number(v) || 5;
+      try { localStorage.setItem('app_notify_lead', JSON.stringify(notifyLead)); } catch (e) {}
+      updateNotifyUi();
+    }
+
+    async function testNotification() {
+      if (!notifySupported()) { showToast('Selain ei tue ilmoituksia', 'error'); return; }
+      if (Notification.permission === 'default') await requestNotifyPermission();
+      updateNotifyUi();
+      if (Notification.permission !== 'granted') { showToast('Ilmoituksia ei sallittu', 'error'); return; }
+      const ok = await showAppNotification('Testi-ilmoitus', 'Taukoilmoitukset toimivat. Esim: Tauko 12.35–13.35 (60 min) + sidonnaisuusaika 5 min', 'testi');
+      showToast(ok ? 'Testi-ilmoitus lähetetty' : 'Ilmoituksen lähetys epäonnistui', ok ? 'success' : 'error');
+    }
+
+    // Käy läpi tämän päivän (ja eilisen yövuoron) tauot ja ilmoittaa, kun tauon alkuun on enintään notifyLead minuuttia.
+    // Ajastus toimii vain kun sovellus on käynnissä (avoinna tai taustalla), koska ilman palvelinta
+    // puhelin ei salli sovelluksen herättämistä itsekseen.
+    function checkBreakNotifications() {
+      if (!notifyOn || !notifySupported() || Notification.permission !== 'granted') return;
+      const now = new Date();
+      const days = [0, -1].map(off => {
+        const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() + off);
+        return formatDateStr(d.getFullYear(), d.getMonth() + 1, d.getDate());
+      });
+      let changed = false;
+      days.forEach(dateStr => {
+        const d = dutyTimeline(dateStr);
+        if (!d) return;
+        const nowMin = nowMinFor(dateStr) + now.getSeconds() / 60;
+        d.steps.forEach((st, i) => {
+          if (stepKind(st.type) !== 'break') return;
+          const s = d.tl[i].s, e = d.tl[i].e;
+          if (!(nowMin >= s - notifyLead && nowMin < s)) return;
+          const key = `${dateStr}|${i}|${s}`;
+          if (notified[key]) return;
+          notified[key] = 1; changed = true;
+          const next = d.steps[i + 1];
+          const bound = next && stepKind(next.type) === 'bound' ? d.tl[i + 1].e - d.tl[i + 1].s : 0;
+          const body = `Tauko ${fmtClock(s)}–${fmtClock(e)} (${fmtDur(e - s)})` + (bound > 0 ? ` + sidonnaisuusaika ${fmtDur(bound)}` : '');
+          showAppNotification(`Tauko alkaa ${fmtClock(s)}`, body, 'tauko-' + key);
+        });
+      });
+      if (changed) {
+        const cutoff = days[1];
+        Object.keys(notified).forEach(k => { if (k.split('|')[0] < cutoff) delete notified[k]; });
+        try { localStorage.setItem('app_notified', JSON.stringify(notified)); } catch (e) {}
       }
     }
 
@@ -1562,8 +2032,8 @@
     }
 
     function clearAllData() {
-      if (confirm('Haluatko varmasti poistaa kaikki tallennetut työvuorot ja ajosarjat?')) {
-        shifts = []; ajosarjaTemplates = {}; saveToStorage(); renderAll();
+      if (confirm('Haluatko varmasti poistaa kaikki tallennetut työvuorot, ajosarjat ja tauko-/päivämerkinnät?')) {
+        shifts = []; ajosarjaTemplates = {}; dayLogs = {}; saveLogs(); saveToStorage(); renderAll();
         closeModal('settings-modal'); showToast('Kaikki tiedot poistettu', 'info');
       }
     }
@@ -1593,6 +2063,7 @@
     function openSettings() {
       updateSavedTemplatesSummary();
       updateBackupStatus();
+      updateNotifyUi();
       document.getElementById('clear-month-label').innerText = `Tyhjennä ${FinnishMonths[currentDate.getMonth()]} ${currentDate.getFullYear()} vuorot`;
       applySettingsFullscreen();
       openModal('settings-modal');
@@ -1628,6 +2099,7 @@
         exportedAt: new Date().toISOString(),
         shifts,
         templates: ajosarjaTemplates,
+        dayLogs,
         settings: { showLayovers }
       };
       const blob = new Blob([JSON.stringify(data)], { type: 'application/json' });
@@ -1687,6 +2159,7 @@
 
       shifts = newShifts;
       ajosarjaTemplates = newTpl;
+      if (data.dayLogs) { dayLogs = normalizeLogs(data.dayLogs); saveLogs(); }
       if (data.settings && typeof data.settings.showLayovers === 'boolean') {
         showLayovers = data.settings.showLayovers;
         try { localStorage.setItem('app_show_layovers', JSON.stringify(showLayovers)); } catch (e) {}

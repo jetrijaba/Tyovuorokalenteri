@@ -1,6 +1,6 @@
 // Service worker: tallentaa sovelluksen tiedostot, jotta se toimii ilman verkkoa.
 // Kun muutat jotain tiedostoa, kasvata VERSION-numeroa, niin puhelin hakee uudet tiedostot.
-const VERSION = 'v2';
+const VERSION = 'v3';
 const CACHE = 'tyovuorot-' + VERSION;
 const FILES = [
   './',
@@ -51,5 +51,16 @@ self.addEventListener('fetch', event => {
       caches.open(CACHE).then(c => c.put(req, copy));
       return res;
     }))
+  );
+});
+
+// Ilmoituksen napautus avaa (tai tuo esiin) sovelluksen
+self.addEventListener('notificationclick', event => {
+  event.notification.close();
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(list => {
+      for (const c of list) { if ('focus' in c) return c.focus(); }
+      return self.clients.openWindow('./index.html');
+    })
   );
 });
